@@ -4,25 +4,24 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
-	"strconv"
 	"strings"
 	"time"
-
+	"strconv"
+	
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/inancgumus/screen"
 	"github.com/ledongthuc/pdf"
 )
 
 type model struct {
-	Files       []os.FileInfo
-	CurrentIdx  int
-	Content     string
-	FontSize    int
-	Loading     bool
-	CurrentPage int
-	TotalPages  int
-	ReadingMode bool
+	Files         []os.FileInfo
+	CurrentIdx    int
+	Content       string
+	Loading       bool
+	CurrentPage   int
+	TotalPages    int
+	ReadingMode   bool
+	ContentOffset int // Offset de rolagem do conteúdo
 }
 
 func (m model) Init() tea.Cmd {
@@ -35,8 +34,6 @@ const (
 	GoToPage MsgType = iota + 1
 	Quit
 	Select
-	IncreaseFontSize
-	DecreaseFontSize
 	LoadingDone
 )
 
@@ -60,7 +57,6 @@ func initialModel() model {
 		Files:       files,
 		CurrentIdx:  0,
 		Content:     "Select a file to view its content",
-		FontSize:    12,
 		ReadingMode: false,
 		CurrentPage: 1,
 	}
@@ -92,10 +88,6 @@ func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleRightKey()
 	case "left", "a":
 		return m.handleLeftKey()
-	case "+":
-		return m.handlePlusKey()
-	case "-":
-		return m.handleMinusKey()
 	}
 	return m, nil
 }
@@ -127,6 +119,7 @@ func (m model) handleMsgType(msg MsgType) (tea.Model, tea.Cmd) {
 func (m model) handleQuitKey() (tea.Model, tea.Cmd) {
 	if m.ReadingMode {
 		m.ReadingMode = false
+		m.CurrentPage = 1
 		screen.Clear()
 		return m, nil
 	}
@@ -142,6 +135,9 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleUpKey() (tea.Model, tea.Cmd) {
+	if m.ContentOffset > 0 && m.ReadingMode {
+		m.ContentOffset--
+	}
 	m.CurrentIdx--
 	if m.CurrentIdx < 0 {
 		m.CurrentIdx = len(m.Files) - 1
@@ -150,32 +146,14 @@ func (m model) handleUpKey() (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleDownKey() (tea.Model, tea.Cmd) {
+	if m.ContentOffset < len(strings.Split(m.Content, "\n"))-screenHeight() && m.ReadingMode {
+		m.ContentOffset++
+	}
 	m.CurrentIdx++
 	if m.CurrentIdx >= len(m.Files) {
 		m.CurrentIdx = 0
 	}
 	return m, nil
-}
-
-func (m model) handlePlusKey() (tea.Model, tea.Cmd) {
-	m.FontSize++
-	// screen.Clear()
-	setFontSize(m.FontSize * 2)
-	return m, nil
-}
-
-func (m model) handleMinusKey() (tea.Model, tea.Cmd) {
-	if m.FontSize > 1 {
-		m.FontSize--
-		setFontSize(m.FontSize * 2)
-	}
-	return m, nil
-}
-
-func setFontSize(size int) {
-	cmd := exec.Command("resize", "-s", strconv.Itoa(size), strconv.Itoa(size*2))
-	cmd.Run()
-	time.Sleep(time.Millisecond * 100) // Give the terminal time to react
 }
 
 func (m model) handleRightKey() (tea.Model, tea.Cmd) {
@@ -227,11 +205,17 @@ func (m model) View() string {
 
 		contentLines := divideTextIntoLines(m.Content, termWidth)
 
-		contentText := strings.Join(contentLines, "\n")
+		// Renderizar apenas o conteúdo visível na tela
+		start := m.ContentOffset
+		end := start + screenHeight() - 2 // -2 para o cabeçalho e rodapé
+		if end > len(contentLines) {
+			end = len(contentLines)
+		}
+		visibleContent := strings.Join(contentLines[start:end], "\n")
 
-		pageInfo := fmt.Sprintf("\nContent (Font Size %d, Page %d/%d):\n", m.FontSize, m.CurrentPage, m.TotalPages)
+		pageInfo := fmt.Sprintf("\nContent (Page %d/%d):\n", m.CurrentPage, m.TotalPages)
 
-		return contentText + pageInfo
+		return visibleContent + pageInfo
 
 	}
 
@@ -266,6 +250,11 @@ func divideTextIntoLines(text string, maxWidth int) []string {
 	}
 
 	return lines
+}
+
+func screenHeight() int {
+	height, _ := screen.Size()
+	return height
 }
 
 type LoadContentMsg struct {
