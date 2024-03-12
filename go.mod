@@ -5,7 +5,9 @@ go 1.18
 require github.com/creack/pty v1.1.21
 
 require (
+	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/charmbracelet/bubbles v0.18.0 // indirect
 	github.com/charmbracelet/bubbletea v0.25.0 // indirect
 	github.com/charmbracelet/lipgloss v0.10.0 // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
@@ -30,6 +32,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/sahilm/fuzzy v0.1.1-0.20230530133925-c48e322e2a8f // indirect
 	github.com/sirupsen/logrus v1.5.0 // indirect
 	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/unidoc/pkcs7 v0.2.0 // indirect
