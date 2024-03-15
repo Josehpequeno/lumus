@@ -14,7 +14,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/inancgumus/screen"
 	"github.com/ledongthuc/pdf"
-	"github.com/muesli/reflow/indent"
 )
 
 type model struct {
@@ -26,21 +25,22 @@ type model struct {
 	TotalPages    int
 	ReadingMode   bool
 	ContentOffset int // Offset de rolagem do conteúdo
-	viewport      viewport.Model
-	list          list.Model
-	choice        string
+	Viewport      viewport.Model
+	List          list.Model
+	FileName      string
 }
 
-var listHeight = screenHeight() -2
+var listHeight = screenHeight() - 2
+
 const useHighPerformanceRenderer = false
 
 var (
-	titleStyle         = lipgloss.NewStyle().MarginLeft(2)
-	itemStyle          = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle  = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("FFFAE0")).Background(lipgloss.Color("002236"))
-	paginationStyle    = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
-	helpStyle          = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	quitTextStyle      = lipgloss.NewStyle().Margin(1, 0, 2, 4)
+	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
+	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
+	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("FFFAE0")).Background(lipgloss.Color("002236"))
+	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
+	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
+	// quitTextStyle      = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 	titleStyleViewport = func() lipgloss.Style {
 		b := lipgloss.RoundedBorder()
 		b.Right = "├"
@@ -60,8 +60,8 @@ func (i item) FilterValue() string { return "" }
 
 type itemDelegate struct{}
 
-func (d itemDelegate) Height() int                               { return 1 }
-func (d itemDelegate) Spacing() int                              { return 0 }
+func (d itemDelegate) Height() int                             { return 1 }
+func (d itemDelegate) Spacing() int                            { return 0 }
 func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 	i, ok := listItem.(item)
@@ -69,7 +69,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		return
 	}
 
-	str := fmt.Sprintf("%s",  i)
+	str := fmt.Sprintf("%s", i)
 
 	fn := itemStyle.Render
 	if index == m.Index() {
@@ -123,7 +123,7 @@ func initialModel() model {
 	}
 
 	const defaultWidth = 20
-	
+
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
 	l.Title = "Lumus"
 	l.SetShowStatusBar(false)
@@ -138,16 +138,37 @@ func initialModel() model {
 		Content:     "Select a file to view its content",
 		ReadingMode: false,
 		CurrentPage: 1,
-		list: l,
+		List:        l,
 	}
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// var teaCmds []tea.Cmd
+	var teaCmds []tea.Cmd
+	var teaCmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetWidth(msg.Width)
-		return m, nil
+		m.List.SetWidth(msg.Width)
+		headerHeight := lipgloss.Height(m.headerView(m.FileName))
+		footerHeight := lipgloss.Height(m.footerView())
+		verticalMarginHeight := headerHeight + footerHeight
+
+		if !m.ReadingMode {
+			m.Viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
+			m.Viewport.YPosition = headerHeight
+			m.Viewport.SetContent(m.Content)
+		} else {
+			m.Viewport.Width = msg.Width
+			m.Viewport.Height = msg.Height - verticalMarginHeight
+		}
+		if useHighPerformanceRenderer {
+			// Render (or re-render) the whole viewport. Necessary both to
+			// initialize the viewport and when the window is resized.
+			//
+			// This is needed for high-performance rendering only.
+			teaCmds = append(teaCmds, viewport.Sync(m.Viewport))
+		}
+
+		// return m, nil
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 	case LoadContentMsg:
@@ -155,34 +176,35 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case MsgType:
 		return m.handleMsgType(msg)
 	}
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	m.List, teaCmd = m.List.Update(msg)
+	return m, teaCmd
 }
 
 func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch keypress := msg.String(); keypress {
-		case "q", "ctrl+c":
-			return m.handleQuitKey()
-		case "enter":
-			i, ok := m.list.SelectedItem().(item)
-			if ok {
-				m.choice = string(i)
-			}
-			return m.handleEnterKey()
-		case "up", "w":
-			return m.handleUpKey(msg)
-		case "down", "s":
-			return m.handleDownKey(msg)
-		case "right", "d":
-			return m.handleRightKey()
-		case "left", "a":
-			return m.handleLeftKey()
-		case "backspace":
-			return m.handleBackspaceKey(msg)
+	case "q", "ctrl+c":
+		return m.handleQuitKey()
+	case "enter":
+		i, ok := m.List.SelectedItem().(item)
+		if ok {
+			m.FileName = string(i)
+		}
+		return m.handleEnterKey()
+	case "up", "w":
+		return m.handleUpKey(msg)
+	case "down", "s":
+		return m.handleDownKey(msg)
+	case "right", "d":
+		return m.handleRightKey()
+	case "left", "a":
+		return m.handleLeftKey()
+	case "backspace":
+		return m.handleBackspaceKey(msg)
+	case "p":
+		return m.handleGoToPage(msg)
 	}
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
+	m.List, cmd = m.List.Update(msg)
 	return m, cmd
 }
 
@@ -193,6 +215,7 @@ func (m model) handleLoadContentMsg(msg LoadContentMsg) (tea.Model, tea.Cmd) {
 		totalPages = 0
 	}
 	m.Content = content
+	m.Viewport.SetContent(content)
 	m.TotalPages = totalPages
 	m.ReadingMode = true
 	return m, tea.Tick(time.Second/2, func(t time.Time) tea.Msg {
@@ -202,8 +225,6 @@ func (m model) handleLoadContentMsg(msg LoadContentMsg) (tea.Model, tea.Cmd) {
 
 func (m model) handleMsgType(msg MsgType) (tea.Model, tea.Cmd) {
 	switch msg {
-	case GoToPage:
-		return m.handleGoToPage()
 	case LoadingDone:
 		return m.handleLoadingDone()
 	}
@@ -214,17 +235,12 @@ func (m model) handleQuitKey() (tea.Model, tea.Cmd) {
 	if m.ReadingMode {
 		m.ReadingMode = false
 		m.CurrentPage = 1
-		screen.Clear()
 		return m, nil
 	}
 	return m, tea.Quit
 }
 
 func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
-	// i, ok := m.list.SelectedItem().(item)
-	// if ok {
-		// m.CurrentIdx = int(i)
-	// }
 	selectedFile := m.Files[m.CurrentIdx]
 	if selectedFile.IsDir() {
 		os.Chdir(selectedFile.Name())
@@ -243,9 +259,9 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 		for _, file := range filteredFiles {
 			items = append(items, item(file.Name()))
 		}
-	
+
 		const defaultWidth = 20
-		
+
 		l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
 		l.Title = "Lumus"
 		l.SetShowStatusBar(false)
@@ -253,47 +269,45 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 		l.Styles.Title = titleStyle
 		l.Styles.PaginationStyle = paginationStyle
 		l.Styles.HelpStyle = helpStyle
-	
+
 		return model{
 			Files:       filteredFiles,
 			CurrentIdx:  0,
 			Content:     "Select a file to view its content",
 			ReadingMode: false,
 			CurrentPage: 1,
-			list: l,
-		},nil
+			List:        l,
+		}, nil
 	}
-
 	m.Loading = true
-	screen.Clear()
 	return m, func() tea.Msg {
 		return LoadContentMsg{FileName: m.Files[m.CurrentIdx].Name(), Page: m.CurrentPage}
 	}
 }
 
 func (m model) handleUpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.ContentOffset > 0 && m.ReadingMode {
-		m.ContentOffset--
+	if m.ReadingMode {
+		return m, nil
 	}
 	m.CurrentIdx--
 	if m.CurrentIdx < 0 {
 		m.CurrentIdx = len(m.Files) - 1
 	}
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
+	m.List, cmd = m.List.Update(msg)
 	return m, cmd
 }
 
 func (m model) handleDownKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.ContentOffset < len(strings.Split(m.Content, "\n"))-screenHeight() && m.ReadingMode {
-		m.ContentOffset++
+	if m.ReadingMode {
+		return m, nil
 	}
 	m.CurrentIdx++
 	if m.CurrentIdx >= len(m.Files) {
 		m.CurrentIdx = 0
 	}
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
+	m.List, cmd = m.List.Update(msg)
 	return m, cmd
 }
 
@@ -335,9 +349,9 @@ func (m model) handleBackspaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		for _, file := range filteredFiles {
 			items = append(items, item(file.Name()))
 		}
-	
+
 		const defaultWidth = 20
-		
+
 		l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
 		l.Title = "Lumus"
 		l.SetShowStatusBar(false)
@@ -345,22 +359,26 @@ func (m model) handleBackspaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		l.Styles.Title = titleStyle
 		l.Styles.PaginationStyle = paginationStyle
 		l.Styles.HelpStyle = helpStyle
-	
+
 		return model{
 			Files:       filteredFiles,
 			CurrentIdx:  0,
 			Content:     "Select a file to view its content",
 			ReadingMode: false,
 			CurrentPage: 1,
-			list: l,
+			List:        l,
 		}, nil
 	}
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
+	m.List, cmd = m.List.Update(msg)
 	return m, cmd
 }
 
-func (m model) handleGoToPage() (tea.Model, tea.Cmd) {
+func (m model) handleGoToPage(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.ReadingMode {
+		return m, nil
+	}
+	// fmt.Println(">", msg)
 	page, err := strconv.Atoi(m.Content)
 	if err != nil || page < 1 || page > m.TotalPages {
 		return m, nil
@@ -385,63 +403,10 @@ func (m model) View() string {
 	}
 
 	if m.ReadingMode {
-		contentWidth := screenWidth() - 4
-		contentLines := strings.Split(m.Content, "\n")
-
-		// Renderizar apenas o conteúdo visível na tela
-		start := m.ContentOffset
-		end := start + screenHeight() - 2 // -2 para o cabeçalho e rodapé
-		if end > len(contentLines) {
-			end = len(contentLines)
-		}
-		visibleContent := strings.Join(contentLines[start:end], "\n")
-
-		pageInfo := fmt.Sprintf("\nContent (Page %d/%d):\n", m.CurrentPage, m.TotalPages)
-		content := lipgloss.NewStyle().
-			Width(contentWidth).
-			Render(visibleContent)
-
-		pageInfoStyle := lipgloss.NewStyle().Width(contentWidth).Render(pageInfo)
-
-		return indent.String(content, 2) + pageInfoStyle
-
+		return fmt.Sprintf("%s\n%s\n%s", m.headerView(m.FileName), m.Viewport.View(), m.footerView())
 	}
 
-	// header := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF8800")).Bold(true).Render("Lumus\n")
-
-	// s := header + "\nFiles:\n"
-	// for i, file := range m.Files {
-	// if i == m.CurrentIdx {
-	// s += fmt.Sprintf("→ %s\n", file.Name())
-	// } else {
-	// s += fmt.Sprintf(" %s\n", file.Name())
-	// }
-	// }
-
-	// footer := "\nInstructions:\n" +
-	// "  - Use arrow keys to navigate\n" +
-	// "  - Press Enter to view a file\n" +
-	// "  - Press q to quit\n" +
-	// "  - Press backspace to go back one directory\n"
-
-	// items := []list.Item{}
-	// for _, file := range m.Files {
-		// items = append(items, item(file.Name()))
-	// }
-// 
-	// const defaultWidth = 20
-// 
-	// // return s + footer
-	// l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
-	// l.Title = "Lumus"
-	// l.SetShowStatusBar(false)
-	// l.SetFilteringEnabled(false)
-	// l.Styles.Title = titleStyle
-	// l.Styles.PaginationStyle = paginationStyle
-	// l.Styles.HelpStyle = helpStyle
-	// // model := model{list: l}
-	// m.list = l
-	return "\n" + m.list.View()
+	return "\n" + m.List.View()
 }
 
 func screenWidth() int {
@@ -463,13 +428,14 @@ func max(a, b int) int {
 
 func (m model) headerView(name string) string {
 	title := titleStyleViewport.Render(name)
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(title)))
+	line := strings.Repeat("─", max(0, m.Viewport.Width-lipgloss.Width(title)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
 }
 
 func (m model) footerView() string {
-	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
+	info := infoStyle.Render(fmt.Sprintf("Page %d/%d", m.CurrentPage, m.TotalPages))
+	// info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.Viewport.ScrollPercent()*100))
+	line := strings.Repeat("─", max(0, m.Viewport.Width-lipgloss.Width(info)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
@@ -517,5 +483,14 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 		return "", 0, err
 	}
 
+	// var buf bytes.Buffer
+	// b, err := r.GetPlainText()
+	// if err != nil {
+	// return "", 0, err
+	// }
+	//
+	// buf.ReadFrom(b)
+	// // fmt.Println(">", buf.String())
+	// return buf.String(), totalPages, nil
 	return pageContent, totalPages, nil
 }
