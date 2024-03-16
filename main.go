@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -17,17 +18,19 @@ import (
 )
 
 type model struct {
-	Files         []os.DirEntry
-	CurrentIdx    int
-	Content       string
-	Loading       bool
-	CurrentPage   int
-	TotalPages    int
-	ReadingMode   bool
-	ContentOffset int // Offset de rolagem do conteúdo
-	Viewport      viewport.Model
-	List          list.Model
-	FileName      string
+	Files        []os.DirEntry
+	CurrentIdx   int
+	Content      string
+	Loading      bool
+	CurrentPage  int
+	TotalPages   int
+	ReadingMode  bool
+	GoToPageMode bool
+	Viewport     viewport.Model
+	List         list.Model
+	FileName     string
+	TextInput    textinput.Model
+	Error        bool
 }
 
 var listHeight = screenHeight() - 2
@@ -82,7 +85,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return textinput.Blink
 }
 
 type MsgType int
@@ -132,13 +135,22 @@ func initialModel() model {
 	l.Styles.PaginationStyle = paginationStyle
 	l.Styles.HelpStyle = helpStyle
 
+	ti := textinput.New()
+	ti.Placeholder = "10"
+	ti.Focus()
+	ti.CharLimit = 10
+	ti.Width = 20
+
 	return model{
-		Files:       filteredFiles,
-		CurrentIdx:  0,
-		Content:     "Select a file to view its content",
-		ReadingMode: false,
-		CurrentPage: 1,
-		List:        l,
+		Files:        filteredFiles,
+		CurrentIdx:   0,
+		Content:      "Select a file to view its content",
+		ReadingMode:  false,
+		CurrentPage:  1,
+		GoToPageMode: false,
+		List:         l,
+		TextInput:    ti,
+		Error:        false,
 	}
 }
 
@@ -167,8 +179,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// This is needed for high-performance rendering only.
 			teaCmds = append(teaCmds, viewport.Sync(m.Viewport))
 		}
-
-		// return m, nil
 	case tea.KeyMsg:
 		return m.handleKeyMsg(msg)
 	case LoadContentMsg:
@@ -181,6 +191,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch keypress := msg.String(); keypress {
 	case "q", "ctrl+c":
 		return m.handleQuitKey()
@@ -203,8 +215,12 @@ func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "p":
 		return m.handleGoToPage(msg)
 	}
-	var cmd tea.Cmd
+
 	m.List, cmd = m.List.Update(msg)
+	if m.GoToPageMode {
+		m.TextInput, cmd = m.TextInput.Update(msg)
+		return m, cmd
+	}
 	return m, cmd
 }
 
@@ -237,10 +253,29 @@ func (m model) handleQuitKey() (tea.Model, tea.Cmd) {
 		m.CurrentPage = 1
 		return m, nil
 	}
+	if m.GoToPageMode {
+		m.GoToPageMode = false
+		m.ReadingMode = true
+		return m, nil
+	}
 	return m, tea.Quit
 }
 
 func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
+	if m.GoToPageMode {
+		pageStr := m.TextInput.Value()
+		page, err := strconv.Atoi(pageStr)
+		if err != nil || page < 1 || page > m.TotalPages {
+			m.Error = true
+			return m, nil
+		}
+		m.CurrentPage = page
+		m.Loading = true
+		m.TextInput.SetValue("")
+		return m, func() tea.Msg {
+			return LoadContentMsg{FileName: m.Files[m.CurrentIdx].Name(), Page: m.CurrentPage}
+		}
+	}
 	selectedFile := m.Files[m.CurrentIdx]
 	if selectedFile.IsDir() {
 		os.Chdir(selectedFile.Name())
@@ -270,13 +305,22 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 		l.Styles.PaginationStyle = paginationStyle
 		l.Styles.HelpStyle = helpStyle
 
+		ti := textinput.New()
+		ti.Placeholder = "10"
+		ti.Focus()
+		ti.CharLimit = 10
+		ti.Width = 20
+
 		return model{
-			Files:       filteredFiles,
-			CurrentIdx:  0,
-			Content:     "Select a file to view its content",
-			ReadingMode: false,
-			CurrentPage: 1,
-			List:        l,
+			Files:        filteredFiles,
+			CurrentIdx:   0,
+			Content:      "Select a file to view its content",
+			ReadingMode:  false,
+			CurrentPage:  1,
+			GoToPageMode: false,
+			List:         l,
+			TextInput:    ti,
+			Error:        false,
 		}, nil
 	}
 	m.Loading = true
@@ -332,7 +376,7 @@ func (m model) handleLeftKey() (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleBackspaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if !m.ReadingMode {
+	if !m.ReadingMode && !m.GoToPageMode {
 		os.Chdir("../")
 		files, err := os.ReadDir(".")
 		if err != nil {
@@ -360,36 +404,41 @@ func (m model) handleBackspaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		l.Styles.PaginationStyle = paginationStyle
 		l.Styles.HelpStyle = helpStyle
 
+		ti := textinput.New()
+		ti.Placeholder = "10"
+		ti.Focus()
+		ti.CharLimit = 10
+		ti.Width = 20
+
 		return model{
-			Files:       filteredFiles,
-			CurrentIdx:  0,
-			Content:     "Select a file to view its content",
-			ReadingMode: false,
-			CurrentPage: 1,
-			List:        l,
+			Files:        filteredFiles,
+			CurrentIdx:   0,
+			Content:      "Select a file to view its content",
+			ReadingMode:  false,
+			CurrentPage:  1,
+			GoToPageMode: false,
+			List:         l,
+			TextInput:    ti,
+			Error:        false,
 		}, nil
 	}
 	var cmd tea.Cmd
 	m.List, cmd = m.List.Update(msg)
+	if m.GoToPageMode {
+		m.TextInput, cmd = m.TextInput.Update(msg)
+		return m, cmd
+	}
 	return m, cmd
 }
 
 func (m model) handleGoToPage(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.ReadingMode {
+	if !m.ReadingMode && !m.GoToPageMode {
 		return m, nil
 	}
-	// fmt.Println(">", msg)
-	page, err := strconv.Atoi(m.Content)
-	if err != nil || page < 1 || page > m.TotalPages {
-		return m, nil
-	}
+	m.GoToPageMode = true
+	m.ReadingMode = false
 
-	m.CurrentPage = page
-	m.Loading = true
-
-	return m, func() tea.Msg {
-		return LoadContentMsg{FileName: m.Files[m.CurrentIdx].Name(), Page: m.CurrentPage}
-	}
+	return m, nil
 }
 
 func (m model) handleLoadingDone() (tea.Model, tea.Cmd) {
@@ -404,6 +453,13 @@ func (m model) View() string {
 
 	if m.ReadingMode {
 		return fmt.Sprintf("%s\n%s\n%s", m.headerView(m.FileName), m.Viewport.View(), m.footerView())
+	}
+
+	if m.GoToPageMode {
+		if !m.Error {
+			return fmt.Sprintf("Go to Page: \n%s\n%s", m.TextInput.View(), "(q to quit)")
+		}
+		return fmt.Sprintf("Go to Page: \n%s\n%s\n%s", m.TextInput.View(), "(q to quit)", "Non-existent page")
 	}
 
 	return "\n" + m.List.View()
@@ -433,31 +489,10 @@ func (m model) headerView(name string) string {
 }
 
 func (m model) footerView() string {
-	info := infoStyle.Render(fmt.Sprintf("Page %d/%d", m.CurrentPage, m.TotalPages))
+	info := infoStyle.Render(fmt.Sprintf("Press 'p' to Go To Page. Arrow Keys to change of page. Page %d/%d ", m.CurrentPage, m.TotalPages))
 	// info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.Viewport.ScrollPercent()*100))
 	line := strings.Repeat("─", max(0, m.Viewport.Width-lipgloss.Width(info)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
-}
-
-func divideTextIntoLines(text string, maxWidth int) []string {
-	var lines []string
-	words := strings.Fields(text)
-	currentLine := ""
-
-	for _, word := range words {
-		if len(currentLine)+len(word) < maxWidth {
-			currentLine += word + " "
-		} else {
-			lines = append(lines, currentLine)
-			currentLine = word + " "
-		}
-	}
-
-	if currentLine != "" {
-		lines = append(lines, currentLine)
-	}
-
-	return lines
 }
 
 type LoadContentMsg struct {
