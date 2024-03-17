@@ -5,6 +5,7 @@ go 1.18
 require github.com/creack/pty v1.1.21
 
 require (
+	github.com/Josehpequeno/gopdf v0.0.0-20240201131950-da5b75280b06 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/bubbles v0.18.0 // indirect
@@ -28,10 +29,12 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
+	github.com/otiai10/gosseract/v2 v2.4.1 // indirect
 	github.com/pdfcpu/pdfcpu v0.7.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rsc/pdf v0.1.1 // indirect
 	github.com/sahilm/fuzzy v0.1.1-0.20230530133925-c48e322e2a8f // indirect
 	github.com/sirupsen/logrus v1.5.0 // indirect
 	github.com/stretchr/testify v1.7.1 // indirect

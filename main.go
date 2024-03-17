@@ -4,17 +4,20 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Josehpequeno/gopdf"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/inancgumus/screen"
-	"github.com/ledongthuc/pdf"
+	"github.com/otiai10/gosseract/v2"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
 
 type model struct {
@@ -512,20 +515,107 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	totalPages := r.NumPage()
 
 	page := r.Page(pageNum)
+	pageWidth := 0
+	pageHeight := 0
 
 	pageContent, err := page.GetPlainText(nil)
 	if err != nil {
 		return "", 0, err
 	}
 
-	// var buf bytes.Buffer
-	// b, err := r.GetPlainText()
-	// if err != nil {
-	// return "", 0, err
-	// }
-	//
-	// buf.ReadFrom(b)
-	// // fmt.Println(">", buf.String())
-	// return buf.String(), totalPages, nil
-	return pageContent, totalPages, nil
+	images := page.GetImages()
+	if len(images) == 0 {
+		return pageContent, totalPages, nil
+	}
+
+	for _, img := range images {
+		pageWidth += img.Width
+		pageHeight += img.Height
+	}
+
+	outputDir := "images"
+
+	// Remover o diretório de saída, se existir
+	if err := os.RemoveAll(outputDir); err != nil {
+		return "", 0, err
+	}
+
+	//extrair imagens
+	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+		return "", 0, err
+	}
+
+	//configurar as opções de extração de imagens
+	// opts := api.NewExtractImagesOpts(fileName, outputDir)
+	// pageSelection := []string{fmt.Sprintf("%d", pageNum)}
+	pageSelection := []string{strconv.Itoa(pageNum)}
+
+	if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
+		return "", 0, err
+	}
+
+	imageFile, err := getImageFile(outputDir)
+	if err != nil {
+		return "", 0, err
+	}
+
+	client := gosseract.NewClient()
+	defer client.Close()
+
+	err = client.SetImage(imageFile)
+	if err != nil {
+		return "", 0, err
+	}
+
+	text, err := client.Text()
+	if err != nil {
+		return "", 0, err
+	}
+
+	imageCoverPage := false
+	//checar o tamanho da imagem referente a página
+	if fileInfo, err := os.Stat(imageFile); err != nil {
+		imageWidth := fileInfo.Size()
+		imageHeight := fileInfo.Size()
+		if imageWidth == pageWidth && imageHeight == pageHeight {
+			imageCoverPage = true
+		}
+	}
+
+	// return pageContent, totalPages, nil
+	if imageCoverPage {
+		return text, totalPages, nil
+	}
+	return text + pageContent, totalPages, nil
+}
+
+func getImageFile(dir string) (string, error) {
+	var imageFiles []string
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() && isImageFile(info.Name()) {
+			imageFiles = append(imageFiles, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return imageFiles[0], nil
+}
+
+func isImageFile(name string) bool {
+	ext := filepath.Ext(name)
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".bmp":
+		return true
+	default:
+		return false
+	}
 }
