@@ -9,13 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Josehpequeno/gopdf"
+	// "github.com/Josehpequeno/gopdf"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/inancgumus/screen"
+	"github.com/ledongthuc/pdf"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
@@ -515,25 +516,13 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	totalPages := r.NumPage()
 
 	page := r.Page(pageNum)
-	pageWidth := 0
-	pageHeight := 0
 
 	pageContent, err := page.GetPlainText(nil)
 	if err != nil {
 		return "", 0, err
 	}
 
-	images := page.GetImages()
-	if len(images) == 0 {
-		return pageContent, totalPages, nil
-	}
-
-	for _, img := range images {
-		pageWidth += img.Width
-		pageHeight += img.Height
-	}
-
-	outputDir := "images"
+	outputDir := "lumus_images_extract"
 
 	// Remover o diretório de saída, se existir
 	if err := os.RemoveAll(outputDir); err != nil {
@@ -546,8 +535,6 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	}
 
 	//configurar as opções de extração de imagens
-	// opts := api.NewExtractImagesOpts(fileName, outputDir)
-	// pageSelection := []string{fmt.Sprintf("%d", pageNum)}
 	pageSelection := []string{strconv.Itoa(pageNum)}
 
 	if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
@@ -572,20 +559,10 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 		return "", 0, err
 	}
 
-	imageCoverPage := false
-	//checar o tamanho da imagem referente a página
-	if fileInfo, err := os.Stat(imageFile); err != nil {
-		imageWidth := fileInfo.Size()
-		imageHeight := fileInfo.Size()
-		if imageWidth == pageWidth && imageHeight == pageHeight {
-			imageCoverPage = true
-		}
-	}
-
 	// return pageContent, totalPages, nil
-	if imageCoverPage {
-		return text, totalPages, nil
-	}
+	// if imageCoverPage {
+	// return text, totalPages, nil
+	// }
 	return text + pageContent, totalPages, nil
 }
 
