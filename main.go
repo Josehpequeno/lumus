@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -9,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/Josehpequeno/gopdf"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -17,6 +19,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/inancgumus/screen"
 	"github.com/ledongthuc/pdf"
+	"github.com/nfnt/resize"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
@@ -38,6 +41,7 @@ type model struct {
 }
 
 var listHeight = screenHeight() - 2
+var client *gosseract.Client
 
 const useHighPerformanceRenderer = false
 
@@ -103,7 +107,12 @@ const (
 
 func main() {
 	p := tea.NewProgram(initialModel())
+	client = gosseract.NewClient()
 
+	// Configurar os idiomas para inglês, espanhol e português brasileiro
+	client.Languages = []string{"eng", "spa", "por+por"}
+
+	defer client.Close()
 	if _, err := p.Run(); err != nil {
 		fmt.Println("Error starting program:", err)
 		os.Exit(1)
@@ -190,12 +199,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case MsgType:
 		return m.handleMsgType(msg)
 	}
+
+	if m.GoToPageMode {
+		m.TextInput, teaCmd = m.TextInput.Update(msg)
+		teaCmds = append(teaCmds, teaCmd)
+		return m, tea.Batch(teaCmds...)
+	}
 	m.List, teaCmd = m.List.Update(msg)
+	teaCmds = append(teaCmds, teaCmd)
 	return m, teaCmd
 }
 
 func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+	var teaCmds []tea.Cmd
+	var teaCmd tea.Cmd
 
 	switch keypress := msg.String(); keypress {
 	case "q", "ctrl+c":
@@ -219,13 +236,14 @@ func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "p":
 		return m.handleGoToPage(msg)
 	}
-
-	m.List, cmd = m.List.Update(msg)
 	if m.GoToPageMode {
-		m.TextInput, cmd = m.TextInput.Update(msg)
-		return m, cmd
+		m.TextInput, teaCmd = m.TextInput.Update(msg)
+		teaCmds = append(teaCmds, teaCmd)
+		return m, tea.Batch(teaCmds...)
 	}
-	return m, cmd
+	m.List, teaCmd = m.List.Update(msg)
+	teaCmds = append(teaCmds, teaCmd)
+	return m, teaCmd
 }
 
 func (m model) handleLoadContentMsg(msg LoadContentMsg) (tea.Model, tea.Cmd) {
@@ -238,7 +256,7 @@ func (m model) handleLoadContentMsg(msg LoadContentMsg) (tea.Model, tea.Cmd) {
 	m.Viewport.SetContent(content)
 	m.TotalPages = totalPages
 	m.ReadingMode = true
-	return m, tea.Tick(time.Second/2, func(t time.Time) tea.Msg {
+	return m, tea.Tick(time.Second/5, func(t time.Time) tea.Msg {
 		return LoadingDone
 	})
 }
@@ -334,12 +352,17 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleUpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var teaCmd tea.Cmd
+	var teaCmds []tea.Cmd
 	if m.ReadingMode {
-		return m, nil
+		// return m, nil
+		m.Viewport, teaCmd = m.Viewport.Update(msg)
+		teaCmds = append(teaCmds, teaCmd)
+		return m, tea.Batch(teaCmds...)
 	}
 	m.CurrentIdx--
 	if m.CurrentIdx < 0 {
-		m.CurrentIdx = len(m.Files) - 1
+		m.CurrentIdx = 0
 	}
 	var cmd tea.Cmd
 	m.List, cmd = m.List.Update(msg)
@@ -347,12 +370,17 @@ func (m model) handleUpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) handleDownKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var teaCmd tea.Cmd
+	var teaCmds []tea.Cmd
 	if m.ReadingMode {
-		return m, nil
+		// return m, nil
+		m.Viewport, teaCmd = m.Viewport.Update(msg)
+		teaCmds = append(teaCmds, teaCmd)
+		return m, tea.Batch(teaCmds...)
 	}
 	m.CurrentIdx++
 	if m.CurrentIdx >= len(m.Files) {
-		m.CurrentIdx = 0
+		m.CurrentIdx = len(m.Files) - 1
 	}
 	var cmd tea.Cmd
 	m.List, cmd = m.List.Update(msg)
@@ -493,10 +521,9 @@ func (m model) headerView(name string) string {
 }
 
 func (m model) footerView() string {
-	info := infoStyle.Render(fmt.Sprintf("Press 'p' to Go To Page. Arrow Keys to change of page. Page %d/%d ", m.CurrentPage, m.TotalPages))
-	// info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.Viewport.ScrollPercent()*100))
+	info := infoStyle.Render(fmt.Sprintf("%3.f%% Page %d/%d ", m.Viewport.ScrollPercent()*100, m.CurrentPage, m.TotalPages))
 	line := strings.Repeat("─", max(0, m.Viewport.Width-lipgloss.Width(info)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+	return lipgloss.JoinHorizontal(lipgloss.Center, line, info) + "\n Press 'p' to Go To Page. Arrow Keys to change of page."
 }
 
 type LoadContentMsg struct {
@@ -541,29 +568,73 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 		return "", 0, err
 	}
 
-	imageFile, err := getImageFile(outputDir)
+	imagePath, err := getImageFile(outputDir)
+	if err != nil {
+		return "", 0, err
+	}
+	if imagePath == "" {
+		// Remover o diretório de saída, se existir
+		if err := os.RemoveAll(outputDir); err != nil {
+			return "", 0, err
+		}
+		return pageContent, totalPages, nil
+	}
+
+	imgFile, err := os.Open(imagePath)
+	if err != nil {
+		return "", 0, err
+	}
+	defer imgFile.Close()
+
+	// Decodificar a imagem
+	img, _, err := image.Decode(imgFile)
 	if err != nil {
 		return "", 0, err
 	}
 
-	client := gosseract.NewClient()
-	defer client.Close()
+	// Redimensionar a imagem para melhorar o desempenho do OCR
+	resizedImg := resize.Resize(0, 1100, img, resize.Lanczos3)
 
-	err = client.SetImage(imageFile)
-	if err != nil {
+	var buf bytes.Buffer
+
+	// Codifique a imagem para o buffer de bytes
+	if err = png.Encode(&buf, resizedImg); err != nil {
 		return "", 0, err
+	}
+
+	// Passe os bytes para a função SetImageFromBytes
+	err = client.SetImageFromBytes(buf.Bytes())
+	if err != nil {
+		// Lidar com o erro, se necessário
+	}
+
+	// err = client.SetImage(imageFile)
+	if err != nil {
+		// return "", 0, err
+		pageContent += "\n" + err.Error()
 	}
 
 	text, err := client.Text()
 	if err != nil {
+		// return "", 0, err
+		pageContent += "\n" + err.Error()
+	}
+
+	// Remover o diretório de saída, se existir
+	if err := os.RemoveAll(outputDir); err != nil {
 		return "", 0, err
 	}
 
-	// return pageContent, totalPages, nil
-	// if imageCoverPage {
-	// return text, totalPages, nil
-	// }
-	return text + pageContent, totalPages, nil
+	similarity := levenshteinDistance(pageContent, text)
+
+	// Definir um limite para determinar se os textos são suficientemente semelhantes
+	threshold := 125
+
+	if similarity <= threshold {
+		return text, totalPages, nil
+	}
+
+	return strconv.Itoa(similarity) + "<similarity\n" + text + "\n" + "PageContent" + "\n" + pageContent, totalPages, nil
 }
 
 func getImageFile(dir string) (string, error) {
@@ -580,10 +651,9 @@ func getImageFile(dir string) (string, error) {
 		return nil
 	})
 
-	if err != nil {
-		return "", err
+	if err != nil || len(imageFiles) == 0 {
+		return "", nil
 	}
-
 	return imageFiles[0], nil
 }
 
@@ -595,4 +665,53 @@ func isImageFile(name string) bool {
 	default:
 		return false
 	}
+}
+
+func levenshteinDistance(s1, s2 string) int {
+	m, n := len(s1), len(s2)
+	if m == 0 {
+		return n
+	}
+
+	if n == 0 {
+		return m
+	}
+
+	matrix := make([][]int, m+1)
+	for i := range matrix {
+		matrix[i] = make([]int, n+1)
+	}
+
+	//inicializar linhas e colunas
+	for i := 0; i <= m; i++ {
+		matrix[i][0] = i
+	}
+	for j := 0; j <= n; j++ {
+		matrix[0][j] = j
+	}
+
+	for i := 1; i <= m; i++ {
+		for j := 1; j <= n; j++ {
+			cost := 0
+			if s1[i-1] != s2[j-1] {
+				cost = 1
+			}
+			matrix[i][j] = min(matrix[i-1][j]+1, matrix[i][j-1]+1, matrix[i-1][j-1]+cost)
+		}
+	}
+
+	return matrix[m][n]
+}
+
+func min(a, b, c int) int {
+	if a < b {
+		if a < c {
+			return a
+		}
+		return c
+	}
+	if b < c {
+		return b
+	}
+	return c
 }
