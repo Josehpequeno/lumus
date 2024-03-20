@@ -18,7 +18,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/inancgumus/screen"
-	"github.com/ledongthuc/pdf"
+	"github.com/mazeForGit/pdf"
 	"github.com/nfnt/resize"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
@@ -547,14 +547,14 @@ type LoadContentMsg struct {
 }
 
 func readPDFFile(fileName string, pageNum int) (string, int, error) {
-	f, r, err := pdf.Open(fileName)
+	r, err := pdf.Open(fileName)
 	if err != nil {
 		// return "", 0, err
 		return pwd + fileName + err.Error(), 0, nil
 	}
-	defer func() {
-		_ = f.Close()
-	}()
+	// defer func() {
+	// _ = f.Close()
+	// }()
 
 	// f, err := os.Open(pwd + fileName)
 	// if err != nil {
