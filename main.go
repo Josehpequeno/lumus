@@ -42,6 +42,7 @@ type model struct {
 
 var listHeight = screenHeight() - 2
 var client *gosseract.Client
+var pwd string
 
 const useHighPerformanceRenderer = false
 
@@ -215,7 +216,7 @@ func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var teaCmd tea.Cmd
 
 	switch keypress := msg.String(); keypress {
-	case "q", "ctrl+c":
+	case "ctrl+c", "q", "esc":
 		return m.handleQuitKey()
 	case "enter":
 		i, ok := m.List.SelectedItem().(item)
@@ -272,6 +273,7 @@ func (m model) handleMsgType(msg MsgType) (tea.Model, tea.Cmd) {
 func (m model) handleQuitKey() (tea.Model, tea.Cmd) {
 	if m.ReadingMode {
 		m.ReadingMode = false
+		m.GoToPageMode = false
 		m.CurrentPage = 1
 		return m, nil
 	}
@@ -306,6 +308,13 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 			fmt.Println("Error reading directory", err)
 			os.Exit(1)
 		}
+		pwd, err = os.Getwd()
+		if err != nil {
+			fmt.Println("Error reading directory path", err)
+			os.Exit(1)
+		}
+
+		pwd += "/"
 		var filteredFiles []os.DirEntry
 		for _, file := range files {
 			if file.IsDir() || strings.HasSuffix(file.Name(), ".pdf") {
@@ -415,6 +424,12 @@ func (m model) handleBackspaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			fmt.Println("Error reading directory", err)
 			os.Exit(1)
 		}
+		pwd, err = os.Getwd()
+		if err != nil {
+			fmt.Println("Error reading directory path", err)
+			os.Exit(1)
+		}
+		pwd += "/"
 		var filteredFiles []os.DirEntry
 		for _, file := range files {
 			if file.IsDir() || strings.HasSuffix(file.Name(), ".pdf") {
@@ -534,11 +549,26 @@ type LoadContentMsg struct {
 func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	f, r, err := pdf.Open(fileName)
 	if err != nil {
-		return "", 0, err
+		// return "", 0, err
+		return pwd + fileName + err.Error(), 0, nil
 	}
 	defer func() {
 		_ = f.Close()
 	}()
+
+	// f, err := os.Open(pwd + fileName)
+	// if err != nil {
+	// return pwd + fileName + err.Error(), 0, nil
+	// }
+	// defer f.Close()
+	// fi, err := f.Stat()
+	// if err != nil {
+	// return pwd + fileName + err.Error(), 0, nil
+	// }
+	// r, err := pdf.NewReader(f, fi.Size())
+	// if err != nil {
+	// return "here" + pwd + fileName + err.Error(), 0, nil
+	// }
 
 	totalPages := r.NumPage()
 
@@ -546,50 +576,59 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	pageContent, err := page.GetPlainText(nil)
 	if err != nil {
-		return "", 0, err
+		// return "", 0, err
+		pageContent += "Here" + "\n" + err.Error() + pwd
+		// return pageContent, 0, nil
 	}
+	pageContent += fileName + pwd
 
 	outputDir := "lumus_images_extract"
 
 	// Remover o diretório de saída, se existir
-	if err := os.RemoveAll(outputDir); err != nil {
-		return "", 0, err
-	}
+	// if err := os.RemoveAll(outputDir); err != nil {
+	// // return "", 0, err
+	// pageContent += "\n" + err.Error()
+	// }
 
 	//extrair imagens
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		return "", 0, err
+		// return "", 0, err
+		pageContent += "\n" + err.Error()
 	}
+	defer func() {
+		_ = os.RemoveAll(outputDir)
+	}()
 
 	//configurar as opções de extração de imagens
 	pageSelection := []string{strconv.Itoa(pageNum)}
 
 	if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
-		return "", 0, err
+		// return "", 0, err
+		pageContent += "\n" + err.Error()
+		return pageContent, totalPages, nil
 	}
 
 	imagePath, err := getImageFile(outputDir)
 	if err != nil {
-		return "", 0, err
+		// return "", 0, err
+		pageContent += "\n" + err.Error()
 	}
 	if imagePath == "" {
-		// Remover o diretório de saída, se existir
-		if err := os.RemoveAll(outputDir); err != nil {
-			return "", 0, err
-		}
 		return pageContent, totalPages, nil
 	}
 
 	imgFile, err := os.Open(imagePath)
 	if err != nil {
-		return "", 0, err
+		// return "", 0, err
+		pageContent += "\n" + err.Error()
 	}
 	defer imgFile.Close()
 
 	// Decodificar a imagem
 	img, _, err := image.Decode(imgFile)
 	if err != nil {
-		return "", 0, err
+		// return "", 0, err
+		pageContent += "\n" + err.Error()
 	}
 
 	// Redimensionar a imagem para melhorar o desempenho do OCR
@@ -620,20 +659,19 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 		pageContent += "\n" + err.Error()
 	}
 
-	// Remover o diretório de saída, se existir
-	if err := os.RemoveAll(outputDir); err != nil {
-		return "", 0, err
-	}
-
 	similarity := levenshteinDistance(pageContent, text)
 
 	// Definir um limite para determinar se os textos são suficientemente semelhantes
 	threshold := 125
 
 	if similarity <= threshold {
+		// // Remover o diretório de saída, se existir
+		// _ = os.RemoveAll(outputDir)
 		return text, totalPages, nil
 	}
 
+	// // Remover o diretório de saída, se existir
+	// _ = os.RemoveAll(outputDir)
 	return strconv.Itoa(similarity) + "<similarity\n" + text + "\n" + "PageContent" + "\n" + pageContent, totalPages, nil
 }
 
