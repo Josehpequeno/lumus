@@ -7,7 +7,9 @@ import (
 	"image/png"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -18,7 +20,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/inancgumus/screen"
-	"github.com/mazeForGit/pdf"
+	"github.com/ledongthuc/pdf"
 	"github.com/nfnt/resize"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
@@ -547,41 +549,31 @@ type LoadContentMsg struct {
 }
 
 func readPDFFile(fileName string, pageNum int) (string, int, error) {
-	r, err := pdf.Open(fileName)
+	f, r, err := pdf.Open(fileName)
 	if err != nil {
 		// return "", 0, err
 		return pwd + fileName + err.Error(), 0, nil
 	}
-	// defer func() {
-	// _ = f.Close()
-	// }()
-
-	// f, err := os.Open(pwd + fileName)
-	// if err != nil {
-	// return pwd + fileName + err.Error(), 0, nil
-	// }
-	// defer f.Close()
-	// fi, err := f.Stat()
-	// if err != nil {
-	// return pwd + fileName + err.Error(), 0, nil
-	// }
-	// r, err := pdf.NewReader(f, fi.Size())
-	// if err != nil {
-	// return "here" + pwd + fileName + err.Error(), 0, nil
-	// }
+	defer func() {
+		_ = f.Close()
+	}()
 
 	totalPages := r.NumPage()
+	// pythonExecutable := "./pdf_extractor"
 
-	page := r.Page(pageNum)
+	//call python function
+	// cmd := exec.Command(pythonExecutable, pwd+fileName, fmt.Sprintf("%d", pageNum))
+	cmd := exec.Command("python3", "extract_text", pwd+fileName, fmt.Sprintf("%d", pageNum))
 
-	pageContent, err := page.GetPlainText(nil)
+	output, err := cmd.Output()
 	if err != nil {
-		// return "", 0, err
-		pageContent += "Here" + "\n" + err.Error() + pwd
-		// return pageContent, 0, nil
+		return "", 0, err
 	}
-	pageContent += fileName + pwd
+	pageContent := strings.TrimSpace(string(output))
 
+	if pageContent != "" {
+		return pageContent, totalPages, nil
+	}
 	outputDir := "lumus_images_extract"
 
 	// Remover o diretório de saída, se existir
@@ -673,6 +665,20 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	// // Remover o diretório de saída, se existir
 	// _ = os.RemoveAll(outputDir)
 	return strconv.Itoa(similarity) + "<similarity\n" + text + "\n" + "PageContent" + "\n" + pageContent, totalPages, nil
+}
+
+func filterInvalidCharacters(text string) string {
+	// Defina uma expressão regular para encontrar caracteres inválidos
+	// invalidChars := regexp.MustCompile(`[^[:ascii:]]`)
+	invalidChars := regexp.MustCompile(`[^\p{L}\p{N}\p{P}\p{Zs}]`)
+
+	// Substitua os caracteres inválidos por um espaço em branco
+	cleanedText := invalidChars.ReplaceAllString(text, " ")
+
+	// Remova espaços em branco extras e normalize o texto
+	cleanedText = strings.TrimSpace(cleanedText)
+
+	return cleanedText
 }
 
 func getImageFile(dir string) (string, error) {
