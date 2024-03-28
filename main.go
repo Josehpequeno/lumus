@@ -46,15 +46,14 @@ var listHeight = screenHeight() - 2
 var client *gosseract.Client
 var pwd string
 
-const useHighPerformanceRenderer = false
+const useHighPerformanceRenderer = true
 
 var (
-	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("FFFAE0")).Background(lipgloss.Color("002236"))
-	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
-	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	// quitTextStyle      = lipgloss.NewStyle().Margin(1, 0, 2, 4)
+	titleStyle         = lipgloss.NewStyle().MarginLeft(2)
+	itemStyle          = lipgloss.NewStyle().PaddingLeft(4)
+	selectedItemStyle  = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("FFFAE0")).Background(lipgloss.Color("002236"))
+	paginationStyle    = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
+	helpStyle          = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 	titleStyleViewport = func() lipgloss.Style {
 		b := lipgloss.RoundedBorder()
 		b.Right = "├"
@@ -145,9 +144,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pwd += "/"
-
-	sourcePath = pwd + sourcePath
+	sourcePath = pwd + "/" + sourcePath
 
 	err = createSymlink(sourcePath, targetPath)
 	if err != nil {
@@ -256,7 +253,7 @@ func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var teaCmd tea.Cmd
 
 	switch keypress := msg.String(); keypress {
-	case "ctrl+c", "q", "esc":
+	case "ctrl+c", "ctrl+q", "q", "esc":
 		return m.handleQuitKey()
 	case "enter":
 		i, ok := m.List.SelectedItem().(item)
@@ -290,13 +287,14 @@ func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) handleLoadContentMsg(msg LoadContentMsg) (tea.Model, tea.Cmd) {
 	content, totalPages, err := readPDFFile(msg.FileName, msg.Page)
 	if err != nil {
-		content = fmt.Sprintf("Error reading file: %v", err)
+		content = fmt.Sprintf("Error reading file %s : %v", pwd+"/"+msg.FileName, err)
 		totalPages = 0
 	}
 	m.Content = content
 	m.Viewport.SetContent(content)
 	m.TotalPages = totalPages
 	m.ReadingMode = true
+	m.Loading = false
 	return m, tea.Tick(time.Second/5, func(t time.Time) tea.Msg {
 		return LoadingDone
 	})
@@ -329,20 +327,25 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 	if m.GoToPageMode {
 		pageStr := m.TextInput.Value()
 		page, err := strconv.Atoi(pageStr)
-		if err != nil || page < 1 || page > m.TotalPages {
+		if err != nil || (page < 1 || page > m.TotalPages) {
 			m.Error = true
 			return m, nil
 		}
 		m.CurrentPage = page
 		m.Loading = true
 		m.TextInput.SetValue("")
+		m.GoToPageMode = false
 		return m, func() tea.Msg {
 			return LoadContentMsg{FileName: m.Files[m.CurrentIdx].Name(), Page: m.CurrentPage}
 		}
 	}
 	selectedFile := m.Files[m.CurrentIdx]
 	if selectedFile.IsDir() {
-		os.Chdir(selectedFile.Name())
+		err := os.Chdir(pwd + "/" + selectedFile.Name())
+		if err != nil {
+			fmt.Println("Error entering directory", err)
+			os.Exit(1)
+		}
 		files, err := os.ReadDir(".")
 		if err != nil {
 			fmt.Println("Error reading directory", err)
@@ -353,8 +356,6 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 			fmt.Println("Error reading directory path", err)
 			os.Exit(1)
 		}
-
-		pwd += "/"
 		var filteredFiles []os.DirEntry
 		for _, file := range files {
 			if file.IsDir() || strings.HasSuffix(file.Name(), ".pdf") {
@@ -376,35 +377,24 @@ func (m model) handleEnterKey() (tea.Model, tea.Cmd) {
 		l.Styles.PaginationStyle = paginationStyle
 		l.Styles.HelpStyle = helpStyle
 
-		ti := textinput.New()
-		ti.Placeholder = "10"
-		ti.Focus()
-		ti.CharLimit = 10
-		ti.Width = 20
+		m.List = l
+		m.Files = filteredFiles
+		m.CurrentIdx = 0
+		m.Content = "Select a file to view its content"
 
-		return model{
-			Files:        filteredFiles,
-			CurrentIdx:   0,
-			Content:      "Select a file to view its content",
-			ReadingMode:  false,
-			CurrentPage:  1,
-			GoToPageMode: false,
-			List:         l,
-			TextInput:    ti,
-			Error:        false,
-		}, nil
+		return m, nil
 	}
 	m.Loading = true
 	return m, func() tea.Msg {
 		return LoadContentMsg{FileName: m.Files[m.CurrentIdx].Name(), Page: m.CurrentPage}
 	}
+
 }
 
 func (m model) handleUpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var teaCmd tea.Cmd
 	var teaCmds []tea.Cmd
 	if m.ReadingMode {
-		// return m, nil
 		m.Viewport, teaCmd = m.Viewport.Update(msg)
 		teaCmds = append(teaCmds, teaCmd)
 		return m, tea.Batch(teaCmds...)
@@ -422,7 +412,6 @@ func (m model) handleDownKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var teaCmd tea.Cmd
 	var teaCmds []tea.Cmd
 	if m.ReadingMode {
-		// return m, nil
 		m.Viewport, teaCmd = m.Viewport.Update(msg)
 		teaCmds = append(teaCmds, teaCmd)
 		return m, tea.Batch(teaCmds...)
@@ -458,7 +447,13 @@ func (m model) handleLeftKey() (tea.Model, tea.Cmd) {
 
 func (m model) handleBackspaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.ReadingMode && !m.GoToPageMode {
-		os.Chdir("../")
+		dir, _ := filepath.Split(pwd)
+		parentDir := filepath.Dir(dir)
+		err := os.Chdir(parentDir)
+		if err != nil {
+			fmt.Println("Error entering directory", err)
+			os.Exit(1)
+		}
 		files, err := os.ReadDir(".")
 		if err != nil {
 			fmt.Println("Error reading directory", err)
@@ -469,7 +464,7 @@ func (m model) handleBackspaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			fmt.Println("Error reading directory path", err)
 			os.Exit(1)
 		}
-		pwd += "/"
+
 		var filteredFiles []os.DirEntry
 		for _, file := range files {
 			if file.IsDir() || strings.HasSuffix(file.Name(), ".pdf") {
@@ -491,23 +486,11 @@ func (m model) handleBackspaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		l.Styles.PaginationStyle = paginationStyle
 		l.Styles.HelpStyle = helpStyle
 
-		ti := textinput.New()
-		ti.Placeholder = "10"
-		ti.Focus()
-		ti.CharLimit = 10
-		ti.Width = 20
-
-		return model{
-			Files:        filteredFiles,
-			CurrentIdx:   0,
-			Content:      "Select a file to view its content",
-			ReadingMode:  false,
-			CurrentPage:  1,
-			GoToPageMode: false,
-			List:         l,
-			TextInput:    ti,
-			Error:        false,
-		}, nil
+		m.List = l
+		m.Files = filteredFiles
+		m.CurrentIdx = 0
+		m.Content = "Select a file to view its content"
+		return m, nil
 	}
 	var cmd tea.Cmd
 	m.List, cmd = m.List.Update(msg)
@@ -570,7 +553,7 @@ func max(a, b int) int {
 }
 
 func (m model) headerView(name string) string {
-	title := titleStyleViewport.Render(name)
+	title := titleStyleViewport.Render(pwd + "/" + name)
 	line := strings.Repeat("─", max(0, m.Viewport.Width-lipgloss.Width(title)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
 }
@@ -587,27 +570,25 @@ type LoadContentMsg struct {
 }
 
 func readPDFFile(fileName string, pageNum int) (string, int, error) {
-	f, r, err := pdf.Open(fileName)
+	f, r, err := pdf.Open(pwd + "/" + fileName)
 	if err != nil {
-		return "", 0, err
-		// return pwd + fileName + err.Error(), 0, nil
+		return err.Error(), 0, err
 	}
-	defer func() {
-		_ = f.Close()
-	}()
 
 	totalPages := r.NumPage()
+	_ = f.Close()
+
 	// pythonExecutable := "./pdf_extractor"
 
 	//call python function
 	// cmd := exec.Command(pythonExecutable, pwd+fileName, fmt.Sprintf("%d", pageNum))
-	cmd := exec.Command("python3", targetPath, pwd+fileName, fmt.Sprintf("%d", pageNum))
+	cmd := exec.Command("python3", targetPath, pwd+"/"+fileName, fmt.Sprintf("%d", pageNum))
 
 	output, err := cmd.Output()
 	if err != nil {
-		return "", 0, err
+		return err.Error(), 0, err
 	}
-	pageContent := strings.TrimSpace(string(output))
+	pageContent := string(output)
 
 	parts := strings.Split(pageContent, "\n")
 
@@ -615,15 +596,13 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	heightPage := parts[1]
 
 	pageContent = strings.Join(parts[2:], "\n")
-
-	// if pageContent != "" {
-	// return pageContent, totalPages, nil
-	// }
+	// eofLine := strings.Repeat("#", max(0, screenWidth()))
+	// pageContent += "\n" + eofLine + eofLine
 	outputDir := "lumus_images_extract"
 
 	//extrair imagens
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		return pageContent, totalPages, nil
+		return err.Error(), 0, err
 	}
 	defer func() {
 		_ = os.RemoveAll(outputDir)
@@ -633,7 +612,7 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	pageSelection := []string{strconv.Itoa(pageNum)}
 
 	if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
-		return pageContent, totalPages, nil
+		return err.Error(), 0, err
 	}
 
 	imagePath, err := getImageFile(outputDir)
@@ -643,6 +622,7 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	imgFile, err := os.Open(imagePath)
 	if err != nil {
+		// return err.Error(), 0, err
 		return pageContent, totalPages, nil
 	}
 	defer imgFile.Close()
@@ -676,6 +656,7 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	err = client.SetImage(imagePath)
 	if err != nil {
+		// return err.Error(), 0, err
 		return pageContent, totalPages, nil
 	}
 
@@ -690,11 +671,11 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	heightPageFloat, err := strconv.ParseFloat(heightPage, 64)
 	if err != nil {
-		return "", 0, err
+		return pageContent, totalPages, nil
 	}
 	widthPageFloat, err := strconv.ParseFloat(widthPage, 64)
 	if err != nil {
-		return "", 0, err
+		return pageContent, totalPages, nil
 	}
 
 	perHeight := float64(heightImg) / heightPageFloat
@@ -710,16 +691,9 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	threshold := 125
 
 	if similarity <= threshold {
-		// // Remover o diretório de saída, se existir
-		// _ = os.RemoveAll(outputDir)
 		return text, totalPages, nil
 	}
 	return text + "\n" + pageContent, totalPages, nil
-
-	// // Remover o diretório de saída, se existir
-	// _ = os.RemoveAll(outputDir)
-	// return strconv.Itoa(similarity) + "<similarity\n" + text + "\n" + "PageContent" + "\n" + pageContent, totalPages, nil
-	// return "pageSizes " + heigthPage + " x " + widthPage + "\n" + "imgSizes " + strconv.Itoa(heigthImg) + " x " + strconv.Itoa(widthImg) + "\n" + text + "\n" + "PageContent" + "\n" + pageContent, totalPages, nil
 }
 
 func getImageFile(dir string) (string, error) {
