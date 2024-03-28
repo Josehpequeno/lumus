@@ -40,13 +40,14 @@ type model struct {
 	FileName     string
 	TextInput    textinput.Model
 	Error        bool
+	Ready        bool
 }
 
 var listHeight = screenHeight() - 2
 var client *gosseract.Client
 var pwd string
 
-const useHighPerformanceRenderer = true
+const useHighPerformanceRenderer = false
 
 var (
 	titleStyle         = lipgloss.NewStyle().MarginLeft(2)
@@ -123,7 +124,7 @@ func createSymlink(sourcePath, targetPath string) error {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	client = gosseract.NewClient()
 
 	// Configurar os idiomas para inglês, espanhol e português brasileiro
@@ -202,6 +203,7 @@ func initialModel() model {
 		List:         l,
 		TextInput:    ti,
 		Error:        false,
+		Ready:        false,
 	}
 }
 
@@ -215,10 +217,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		footerHeight := lipgloss.Height(m.footerView())
 		verticalMarginHeight := headerHeight + footerHeight
 
-		if !m.ReadingMode {
+		if !m.Ready {
 			m.Viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
 			m.Viewport.YPosition = headerHeight
+			m.Viewport.HighPerformanceRendering = useHighPerformanceRenderer
 			m.Viewport.SetContent(m.Content)
+			m.Ready = true
+			// Render the viewport one line below the header.
+			m.Viewport.YPosition = headerHeight + 1
 		} else {
 			m.Viewport.Width = msg.Width
 			m.Viewport.Height = msg.Height - verticalMarginHeight
@@ -243,9 +249,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		teaCmds = append(teaCmds, teaCmd)
 		return m, tea.Batch(teaCmds...)
 	}
+	// Handle keyboard and mouse events in the viewport
+	m.Viewport, teaCmd = m.Viewport.Update(msg)
+	teaCmds = append(teaCmds, teaCmd)
 	m.List, teaCmd = m.List.Update(msg)
 	teaCmds = append(teaCmds, teaCmd)
-	return m, teaCmd
+	return m, tea.Batch(teaCmds...)
 }
 
 func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
