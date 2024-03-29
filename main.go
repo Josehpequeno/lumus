@@ -569,8 +569,9 @@ func (m model) headerView(name string) string {
 
 func (m model) footerView() string {
 	info := infoStyle.Render(fmt.Sprintf("%3.f%% Page %d/%d ", m.Viewport.ScrollPercent()*100, m.CurrentPage, m.TotalPages))
-	line := strings.Repeat("─", max(0, m.Viewport.Width-lipgloss.Width(info)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info) + "\n Press 'p' to Go To Page. Arrow Keys to change of page."
+	str := "Press 'p' to Go To Page. Arrow Keys to change of page. "
+	line := str + strings.Repeat(" ", max(0, m.Viewport.Width-(lipgloss.Width(info)+len(str))))
+	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 }
 
 type LoadContentMsg struct {
