@@ -6,6 +6,7 @@ import (
 	"image"
 	// "image/png"
 	"io"
+	"unicode/utf8"
 	"os"
 	"os/exec"
 	"os/user"
@@ -221,10 +222,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.List.SetWidth(msg.Width)
 		headerHeight := lipgloss.Height(m.headerView(m.FileName))
 		footerHeight := lipgloss.Height(m.footerView())
-		verticalMarginHeight := headerHeight + footerHeight
+		verticalMarginHeight := headerHeight + footerHeight 
 
 		if !m.Ready {
-			m.Viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
+			m.Viewport = viewport.New(screenWidth(), screenHeight()-verticalMarginHeight)
 			m.Viewport.YPosition = headerHeight
 			m.Viewport.HighPerformanceRendering = useHighPerformanceRenderer
 			m.Viewport.SetContent(m.Content)
@@ -232,8 +233,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Render the viewport one line below the header.
 			m.Viewport.YPosition = headerHeight + 1
 		} else {
-			m.Viewport.Width = msg.Width
-			m.Viewport.Height = msg.Height - verticalMarginHeight
+			m.Viewport.Width = screenWidth()
+			m.Viewport.Height = screenHeight() - verticalMarginHeight
 		}
 		if useHighPerformanceRenderer {
 			// Render (or re-render) the whole viewport. Necessary both to
@@ -443,6 +444,8 @@ func (m model) handleDownKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) handleRightKey() (tea.Model, tea.Cmd) {
 	if m.ReadingMode && m.CurrentPage < m.TotalPages {
 		m.CurrentPage++
+		// headerHeight := lipgloss.Height(m.headerView(m.FileName))
+		m.Viewport.YPosition = 0
 		return m, func() tea.Msg {
 			return LoadContentMsg{FileName: m.Files[m.CurrentIdx].Name(), Page: m.CurrentPage}
 		}
@@ -453,6 +456,8 @@ func (m model) handleRightKey() (tea.Model, tea.Cmd) {
 func (m model) handleLeftKey() (tea.Model, tea.Cmd) {
 	if m.ReadingMode && m.CurrentPage > 1 {
 		m.CurrentPage--
+		// headerHeight := lipgloss.Height(m.headerView(m.FileName))
+		m.Viewport.YPosition = 0
 		return m, func() tea.Msg {
 			return LoadContentMsg{FileName: m.Files[m.CurrentIdx].Name(), Page: m.CurrentPage}
 		}
@@ -612,6 +617,7 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	heightPage := parts[1]
 
 	pageContent = strings.Join(parts[2:], "\n")
+	pageContent =  textWithWidth(pageContent)
 	// eofLine := strings.Repeat("#", max(0, screenWidth()))
 	// pageContent += "\n" + eofLine + eofLine
 	outputDir := "lumus_images_extract"
@@ -789,4 +795,35 @@ func min(a, b, c int) int {
 		return b
 	}
 	return c
+}
+
+
+func textWithWidth(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	
+	text := ""
+	i := 0
+	width := screenWidth() - 1
+
+	if len(s) > width {
+		for (i+width) < len(s)-1 {
+			if utf8.ValidRune(rune(s[i+width])) {
+				text += s[i:i+width] +"\n"
+				i += width
+			} else {
+				j := 1
+				for utf8.ValidRune(rune(s[i+width-j])) && j < width {	
+					j++
+				}
+				i += width-(j+2)
+				text += s[i:i+width-(j+2)] +"\n"
+			}
+		}
+		text += s[i:len(s)-1] +"\n"
+		return text
+	} else {
+		return s
+	}
 }
