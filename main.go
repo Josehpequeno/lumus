@@ -137,7 +137,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	targetPath = fmt.Sprintf("/home/%s/.local/bin/extract_text_lumus", currentUser.Username)
+	binPath := fmt.Sprintf("/home/%s/.local/bin/", currentUser.Username)
+	if err := os.MkdirAll(binPath, os.ModePerm); err != nil {
+		fmt.Println("Error creating bin folder:", err)
+		os.Exit(1)
+	}
+
+	targetPath = binPath + "extract_text_lumus"
 
 	pwd, err = os.Getwd()
 	if err != nil {
