@@ -17,6 +17,7 @@ def extract_text_from_pdf(pdf_path, page_number):
         # text_without_excessive_spaces = re.sub(r'\s{1,6}', ' ', text).strip()
         text_without_excessive_spaces = re.sub(r'\s+', ' ', text).strip()
         print(text_without_excessive_spaces)
+        # print(text)
 
 pdf_path = sys.argv[1]
 page_number = int(sys.argv[2])

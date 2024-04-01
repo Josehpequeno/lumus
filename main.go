@@ -6,7 +6,6 @@ import (
 	"image"
 	// "image/png"
 	"io"
-	"unicode/utf8"
 	"os"
 	"os/exec"
 	"os/user"
@@ -14,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	// "unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -22,6 +22,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/inancgumus/screen"
 	"github.com/ledongthuc/pdf"
+	"github.com/mattn/go-runewidth"
+
 	// "github.com/nfnt/resize"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
@@ -222,7 +224,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.List.SetWidth(msg.Width)
 		headerHeight := lipgloss.Height(m.headerView(m.FileName))
 		footerHeight := lipgloss.Height(m.footerView())
-		verticalMarginHeight := headerHeight + footerHeight 
+		verticalMarginHeight := headerHeight + footerHeight
 
 		if !m.Ready {
 			m.Viewport = viewport.New(screenWidth(), screenHeight()-verticalMarginHeight)
@@ -308,10 +310,12 @@ func (m model) handleLoadContentMsg(msg LoadContentMsg) (tea.Model, tea.Cmd) {
 	}
 	m.Content = content
 	m.Viewport.SetContent(content)
+	//reset scroll
+	m.Viewport.GotoTop()
 	m.TotalPages = totalPages
 	m.ReadingMode = true
 	m.Loading = false
-	return m, tea.Tick(time.Second/5, func(t time.Time) tea.Msg {
+	return m, tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return LoadingDone
 	})
 }
@@ -617,7 +621,7 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	heightPage := parts[1]
 
 	pageContent = strings.Join(parts[2:], "\n")
-	pageContent =  textWithWidth(pageContent)
+	pageContent = textWithWidth(pageContent)
 	// eofLine := strings.Repeat("#", max(0, screenWidth()))
 	// pageContent += "\n" + eofLine + eofLine
 	outputDir := "lumus_images_extract"
@@ -797,33 +801,29 @@ func min(a, b, c int) int {
 	return c
 }
 
-
 func textWithWidth(s string) string {
 	if len(s) == 0 {
 		return s
 	}
-	
-	text := ""
-	i := 0
-	width := screenWidth() - 1
 
-	if len(s) > width {
-		for (i+width) < len(s)-1 {
-			if utf8.ValidRune(rune(s[i+width])) {
-				text += s[i:i+width] +"\n"
-				i += width
+	text := ""
+	screenWidth := screenWidth() - 1
+
+	if len(s) > screenWidth {
+		var line string
+		for _, r := range s {
+			// detecta o tamanho da rune
+			lineWidth := runewidth.RuneWidth(r)
+			// a rune é colocada na linha de acordo com o tamanho da screen
+			if lineWidth > 0 && len(line)+lineWidth <= screenWidth {
+				line += string(r)
 			} else {
-				j := 1
-				for utf8.ValidRune(rune(s[i+width-j])) && j < width {	
-					j++
-				}
-				i += width-(j+2)
-				text += s[i:i+width-(j+2)] +"\n"
+				text += line + " \n"
+				line = string(r)
 			}
 		}
-		text += s[i:len(s)-1] +"\n"
+		text += line + " \n"
 		return text
-	} else {
-		return s
 	}
+	return s
 }
