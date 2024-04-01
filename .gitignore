@@ -19,3 +19,8 @@
 
 # Go workspace file
 go.work
+
+# Python
+build
+#dist
+extract_text.spec
