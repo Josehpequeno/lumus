@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	// "unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -27,6 +28,7 @@ import (
 	// "github.com/nfnt/resize"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"lumus/spinner"
 )
 
 type model struct {
@@ -44,6 +46,7 @@ type model struct {
 	TextInput    textinput.Model
 	Error        bool
 	Ready        bool
+	spinner      spinner.Model
 }
 
 var listHeight = screenHeight() - 2
@@ -69,6 +72,8 @@ var (
 		b.Left = "┤"
 		return titleStyle.Copy().BorderStyle(b)
 	}()
+	textStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Render
+	spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
 )
 
 type item string
@@ -202,6 +207,10 @@ func initialModel() model {
 	ti.CharLimit = 10
 	ti.Width = 20
 
+	sp := spinner.New()
+	sp.Spinner = spinner.Wand
+	sp.Style = spinnerStyle
+
 	return model{
 		Files:        filteredFiles,
 		CurrentIdx:   0,
@@ -213,6 +222,7 @@ func initialModel() model {
 		TextInput:    ti,
 		Error:        false,
 		Ready:        false,
+		spinner:      sp,
 	}
 }
 
@@ -249,15 +259,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyMsg(msg)
 	case LoadContentMsg:
 		return m.handleLoadContentMsg(msg)
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	case MsgType:
 		return m.handleMsgType(msg)
 	}
-
 	if m.GoToPageMode {
 		m.TextInput, teaCmd = m.TextInput.Update(msg)
 		teaCmds = append(teaCmds, teaCmd)
 		return m, tea.Batch(teaCmds...)
 	}
+
 	// Handle keyboard and mouse events in the viewport
 	m.Viewport, teaCmd = m.Viewport.Update(msg)
 	teaCmds = append(teaCmds, teaCmd)
@@ -299,7 +313,7 @@ func (m model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	m.List, teaCmd = m.List.Update(msg)
 	teaCmds = append(teaCmds, teaCmd)
-	return m, teaCmd
+	return m, tea.Batch(teaCmds...)
 }
 
 func (m model) handleLoadContentMsg(msg LoadContentMsg) (tea.Model, tea.Cmd) {
@@ -314,10 +328,15 @@ func (m model) handleLoadContentMsg(msg LoadContentMsg) (tea.Model, tea.Cmd) {
 	m.Viewport.GotoTop()
 	m.TotalPages = totalPages
 	m.ReadingMode = true
-	m.Loading = false
-	return m, tea.Tick(time.Second, func(t time.Time) tea.Msg {
+	var teaCmds []tea.Cmd
+	var teaCmd tea.Cmd
+	teaCmd = m.spinner.Tick
+	teaCmds = append(teaCmds, teaCmd)
+	teaCmd = tea.Tick(4*time.Second, func(time.Time) tea.Msg {
 		return LoadingDone
 	})
+	teaCmds = append(teaCmds, teaCmd)
+	return m, tea.Batch(teaCmds...)
 }
 
 func (m model) handleMsgType(msg MsgType) (tea.Model, tea.Cmd) {
@@ -542,7 +561,8 @@ func (m model) handleLoadingDone() (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.Loading {
-		return "\nLoading..."
+		gap := "\n"
+		return fmt.Sprintf("\n %s%s%s\n\n", textStyle(""), gap, m.spinner.View())
 	}
 
 	if m.ReadingMode {
