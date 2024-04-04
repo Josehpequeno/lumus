@@ -1,16 +1,10 @@
 package main
 
 import (
-	// "bytes"
 	"fmt"
-	// "image"
-	// "image/png"
 	"io"
 	"os"
-	// "os/exec"
-	"os/user"
 	"path/filepath"
-	// "regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +17,6 @@ import (
 	"github.com/inancgumus/screen"
 	"github.com/mattn/go-runewidth"
 
-	// "github.com/nfnt/resize"
 	"code.sajari.com/docconv/v2"
 	"github.com/ledongthuc/pdf"
 	"github.com/otiai10/gosseract/v2"
@@ -116,23 +109,6 @@ const (
 	LoadingDone
 )
 
-var sourcePath string = "extract_text.py"
-
-// var sourcePath string = "./dist/extract_text"
-var targetPath string = ""
-
-func createSymlink(sourcePath, targetPath string) error {
-	if _, err := os.Lstat(targetPath); err == nil {
-		return nil
-	}
-
-	err := os.Symlink(sourcePath, targetPath)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func main() {
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	client = gosseract.NewClient()
@@ -141,33 +117,6 @@ func main() {
 	client.Languages = []string{"eng", "spa", "por+por"}
 	defer client.Close()
 
-	currentUser, err := user.Current()
-	if err != nil {
-		fmt.Println("Error get current user:", err)
-		os.Exit(1)
-	}
-
-	binPath := fmt.Sprintf("/home/%s/.local/bin/", currentUser.Username)
-	if err := os.MkdirAll(binPath, os.ModePerm); err != nil {
-		fmt.Println("Error creating bin folder:", err)
-		os.Exit(1)
-	}
-
-	targetPath = binPath + "extract_text_lumus"
-
-	pwd, err = os.Getwd()
-	if err != nil {
-		fmt.Println("Error reading directory path", err)
-		os.Exit(1)
-	}
-
-	sourcePath = pwd + "/" + sourcePath
-
-	err = createSymlink(sourcePath, targetPath)
-	if err != nil {
-		fmt.Println("Error creating link:", err)
-		os.Exit(1)
-	}
 	if _, err := p.Run(); err != nil {
 		fmt.Println("Error starting program:", err)
 		os.Exit(1)
@@ -617,13 +566,6 @@ type LoadContentMsg struct {
 }
 
 func readPDFFile(fileName string, pageNum int) (string, int, error) {
-	// f, err := os.Open(pwd + "/" + fileName)
-	// if err != nil {
-	// fmt.Println("Error open file:", err)
-	// return "", 0, err
-	// }
-	// defer f.Close()
-
 	f, r, err := pdf.Open(pwd + "/" + fileName)
 	if err != nil {
 		return err.Error(), 0, err
@@ -631,15 +573,6 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	totalPages := r.NumPage()
 	defer f.Close()
-
-	// fileContent, err := io.ReadAll(f)
-	// if err != nil {
-	// return "", 0, err
-	// }
-
-	// re := regexp.MustCompile(`/Type\s*/Page[^s]`)
-	// pageIndices := re.FindAllIndex(fileContent, -1)
-	// totalPages := len(pageIndices)
 
 	outputDir := "lumus_extract"
 
@@ -650,10 +583,8 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	defer func() {
 		_ = os.RemoveAll(outputDir)
 	}()
+
 	pageSelection := []string{strconv.Itoa(pageNum)}
-	// readPdfPageFilePath := outputDir + "/" + "lumus_pdf_page" + pageSelection + ".pdf"
-	// api.ExtractPagesFile(pwd+"/"+fileName, readPdfPageFilePath, []string{fmt.Sprintf("%d", pageNum)}, nil)
-	// api.ExtractPagesFile(pwd+"/"+fileName, readPdfPageFilePath, []string{fmt.Sprintf("%d", pageNum)}, nil)
 	readPdfPageFilePath := outputDir + "/" + fmt.Sprintf("%s_page_%d.pdf", "lumus_pdf_page", pageNum)
 	api.ExtractPages(f, outputDir, "lumus_pdf_page", pageSelection, nil)
 	res, err := docconv.ConvertPath(readPdfPageFilePath)
@@ -664,215 +595,6 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	pageContent := textWithWidth(res.Body)
 
 	return pageContent, totalPages, nil
-	// return res.Body + "\n", totalPages, nil
-
-}
-
-// return "", 0, nil
-// f, r, err := pdf.Open(pwd + "/" + fileName)
-// if err != nil {
-// return err.Error(), 0, err
-// }
-//
-// totalPages := r.NumPage()
-// _ = f.Close()
-//
-// // pythonExecutable := "./pdf_extractor"
-//
-// //call python function
-// // cmd := exec.Command(pythonExecutable, pwd+fileName, fmt.Sprintf("%d", pageNum))
-// cmd := exec.Command("python3", targetPath, pwd+"/"+fileName, fmt.Sprintf("%d", pageNum))
-// // cmd := exec.Command("bash", targetPath, pwd+"/"+fileName, fmt.Sprintf("%d", pageNum))
-//
-// output, err := cmd.Output()
-// if err != nil {
-// return err.Error(), 0, err
-// }
-// pageContent := string(output)
-//
-// parts := strings.Split(pageContent, "\n")
-//
-// widthPage := parts[0]
-// heightPage := parts[1]
-//
-// pageContent = strings.Join(parts[2:], "\n")
-// pageContent = textWithWidth(pageContent)
-//
-// outputDir := "lumus_images_extract"
-//
-// //extract images
-// if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-// return pageContent, totalPages, nil
-// }
-// defer func() {
-// _ = os.RemoveAll(outputDir)
-// }()
-//
-// //configure image extraction options
-// pageSelection := []string{strconv.Itoa(pageNum)}
-//
-// if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
-// return pageContent, totalPages, nil
-// }
-//
-// imagePath, err := getImageFile(outputDir)
-// if err != nil || imagePath == "" {
-// return pageContent, totalPages, nil
-// }
-//
-// imgFile, err := os.Open(imagePath)
-// if err != nil {
-// // return err.Error(), 0, err
-// return pageContent, totalPages, nil
-// }
-// defer imgFile.Close()
-//
-// //decode the image
-// img, _, err := image.Decode(imgFile)
-// if err != nil {
-// return pageContent, totalPages, nil
-// }
-//
-// bounds := img.Bounds()
-// widthImg := bounds.Max.X
-// heightImg := bounds.Max.Y
-// //
-// // // Resize the image to improve OCR performance
-// // resizedImg := resize.Resize(0, 1100, img, resize.Lanczos3)
-// // // The resulting image is empty or has unexpected dimensions
-// // pageContent += strconv.Itoa(widthImg) + " x " + strconv.Itoa(heightImg) + "\n"
-// // var buf bytes.Buffer
-// //
-// // //Encode the image to the byte buffer
-// // if err = png.Encode(&buf, resizedImg); err != nil {
-// // return pageContent, totalPages, nil
-// // }
-// //
-// // // Pass the bytes to the Set Image FromBytes function
-// // err = client.SetImageFromBytes(buf.Bytes())
-// // if err != nil {
-// // return pageContent, totalPages, nil
-// // }
-//
-// err = client.SetImage(imagePath)
-// if err != nil {
-// // return err.Error(), 0, err
-// return pageContent, totalPages, nil
-// }
-//
-// text, err := client.Text()
-// if err != nil {
-// return pageContent, totalPages, nil
-// }
-//
-// if widthPage == "" || heightPage == "" {
-// return text, totalPages, nil
-// }
-//
-// heightPageFloat, err := strconv.ParseFloat(heightPage, 64)
-// if err != nil {
-// return pageContent, totalPages, nil
-// }
-// widthPageFloat, err := strconv.ParseFloat(widthPage, 64)
-// if err != nil {
-// return pageContent, totalPages, nil
-// }
-//
-// perHeight := float64(heightImg) / heightPageFloat
-// perWidth := float64(widthImg) / widthPageFloat
-//
-// if perHeight > 0.8 && perWidth > 0.8 {
-// return text, totalPages, nil
-// }
-//
-// similarity := levenshteinDistance(pageContent, text)
-//
-// // Set a threshold to determine whether texts are similar enough
-// threshold := 125
-//
-// if similarity <= threshold {
-// return text, totalPages, nil
-// }
-// return text + "\n" + pageContent, totalPages, nil
-// }
-
-func getImageFile(dir string) (string, error) {
-	var imageFiles []string
-
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() && isImageFile(info.Name()) {
-			imageFiles = append(imageFiles, path)
-		}
-		return nil
-	})
-
-	if err != nil || len(imageFiles) == 0 {
-		return "", nil
-	}
-	return imageFiles[0], nil
-}
-
-func isImageFile(name string) bool {
-	ext := filepath.Ext(name)
-	switch ext {
-	case ".jpg", ".jpeg", ".png", ".gif", ".bmp":
-		return true
-	default:
-		return false
-	}
-}
-
-func levenshteinDistance(s1, s2 string) int {
-	m, n := len(s1), len(s2)
-	if m == 0 {
-		return n
-	}
-
-	if n == 0 {
-		return m
-	}
-
-	matrix := make([][]int, m+1)
-	for i := range matrix {
-		matrix[i] = make([]int, n+1)
-	}
-
-	//initialize rows and columns
-	for i := 0; i <= m; i++ {
-		matrix[i][0] = i
-	}
-	for j := 0; j <= n; j++ {
-		matrix[0][j] = j
-	}
-
-	for i := 1; i <= m; i++ {
-		for j := 1; j <= n; j++ {
-			cost := 0
-			if s1[i-1] != s2[j-1] {
-				cost = 1
-			}
-			matrix[i][j] = min(matrix[i-1][j]+1, matrix[i][j-1]+1, matrix[i-1][j-1]+cost)
-		}
-	}
-
-	return matrix[m][n]
-}
-
-func min(a, b, c int) int {
-	if a < b {
-		if a < c {
-			return a
-		}
-		return c
-	}
-	if b < c {
-		return b
-	}
-	return c
 }
 
 func textWithWidth(s string) string {
@@ -890,6 +612,7 @@ func textWithWidth(s string) string {
 			lineWidth := runewidth.RuneWidth(r)
 			// the rune is placed on the line according to the screen size
 			if r == '\n' && len(line)+lineWidth <= screenWidth {
+				//remove new line from text
 				text += line + " "
 				line = string(r)
 			} else if lineWidth > 0 && len(line)+lineWidth <= screenWidth {

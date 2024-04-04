@@ -20,16 +20,16 @@ Before installing Lumus, you need to have the following dependencies installed o
 
 - Go (version 1.16 or later)
 
-#### Debian
-- tesseract-ocr
-- libleptonica-dev
-- libtesseract-dev
-- python3-pip
-- pip install PyPDF2
-
-#### Arch linux
-- tesseract
-- yay -S python-pypdf2
+<!-- #### Debian -->
+<!-- - tesseract-ocr -->
+<!-- - libleptonica-dev -->
+<!-- - libtesseract-dev -->
+<!-- - python3-pip -->
+<!-- - pip install PyPDF2 -->
+<!--  -->
+<!-- #### Arch linux -->
+<!-- - tesseract -->
+<!-- - yay -S python-pypdf2 -->
 
 
 ### Installation Steps
@@ -76,15 +76,15 @@ Contributions are welcome! If you find any bugs or have suggestions for new feat
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Explanation
-
-The project uses python code with the PyPDF2 library to extract texts from pages. The gosseract library is used as a complement to PyPDF2, as it extracts text from images in PDFs. The Levenshtein Distance algorithm is used to determine whether the text extracted from the images and the PDF are similar. If they are not similar, the two are complements of each other. This was the best way found for now.
-
-Projects like in  https://github.com/ledongthuc/pdf and in https://github.com/mazeForGit/pdf were tried first instead of Pypdf2 but I didn't find better or equal results like in the python lib.
+<!-- ## Explanation -->
+<!--  -->
+<!-- The project uses python code with the PyPDF2 library to extract texts from pages. The gosseract library is used as a complement to PyPDF2, as it extracts text from images in PDFs. The Levenshtein Distance algorithm is used to determine whether the text extracted from the images and the PDF are similar. If they are not similar, the two are complements of each other. This was the best way found for now. -->
+<!--  -->
+<!-- Projects like in  https://github.com/ledongthuc/pdf and in https://github.com/mazeForGit/pdf were tried first instead of Pypdf2 but I didn't find better or equal results like in the python lib. -->
 
 ## Future Work
 
-The development of a go library as good as PyPDF2 and a more thematic loading animation are in future plans, in addition to some future user recommendations.
+The development of a more thematic loading animation are in future plans, in addition to some future user recommendations.
 
 <!-- ## Acknowledgments -->
 
