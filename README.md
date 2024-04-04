@@ -20,15 +20,15 @@ Before installing Lumus, you need to have the following dependencies installed o
 
 - Go (version 1.16 or later)
 
-<!-- #### Debian -->
-<!-- - tesseract-ocr -->
-<!-- - libleptonica-dev -->
-<!-- - libtesseract-dev -->
+#### Debian 
+- tesseract-ocr 
+- libleptonica-dev 
+- libtesseract-dev 
 <!-- - python3-pip -->
 <!-- - pip install PyPDF2 -->
 <!--  -->
-<!-- #### Arch linux -->
-<!-- - tesseract -->
+#### Arch linux 
+- tesseract 
 <!-- - yay -S python-pypdf2 -->
 
 
