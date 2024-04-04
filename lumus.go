@@ -10,7 +10,7 @@ import (
 	// "os/exec"
 	"os/user"
 	"path/filepath"
-	"regexp"
+	// "regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +25,7 @@ import (
 
 	// "github.com/nfnt/resize"
 	"code.sajari.com/docconv/v2"
+	"github.com/ledongthuc/pdf"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"lumus/spinner"
@@ -616,21 +617,29 @@ type LoadContentMsg struct {
 }
 
 func readPDFFile(fileName string, pageNum int) (string, int, error) {
-	f, err := os.Open(pwd + "/" + fileName)
+	// f, err := os.Open(pwd + "/" + fileName)
+	// if err != nil {
+	// fmt.Println("Error open file:", err)
+	// return "", 0, err
+	// }
+	// defer f.Close()
+
+	f, r, err := pdf.Open(pwd + "/" + fileName)
 	if err != nil {
-		fmt.Println("Error open file:", err)
-		return "", 0, err
+		return err.Error(), 0, err
 	}
+
+	totalPages := r.NumPage()
 	defer f.Close()
 
-	fileContent, err := io.ReadAll(f)
-	if err != nil {
-		return "", 0, err
-	}
+	// fileContent, err := io.ReadAll(f)
+	// if err != nil {
+	// return "", 0, err
+	// }
 
-	re := regexp.MustCompile(`/Type\s*/Page[^s]`)
-	pageIndices := re.FindAllIndex(fileContent, -1)
-	totalPages := len(pageIndices)
+	// re := regexp.MustCompile(`/Type\s*/Page[^s]`)
+	// pageIndices := re.FindAllIndex(fileContent, -1)
+	// totalPages := len(pageIndices)
 
 	outputDir := "lumus_extract"
 
@@ -652,10 +661,10 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 		return "", 0, err
 	}
 
-	// pageContent := textWithWidth(res.Body)
+	pageContent := textWithWidth(res.Body)
 
-	// return pageContent, totalPages, nil
-	return res.Body + "\n", totalPages, nil
+	return pageContent, totalPages, nil
+	// return res.Body + "\n", totalPages, nil
 
 }
 
@@ -880,7 +889,10 @@ func textWithWidth(s string) string {
 			// detects rune size
 			lineWidth := runewidth.RuneWidth(r)
 			// the rune is placed on the line according to the screen size
-			if lineWidth > 0 && len(line)+lineWidth <= screenWidth {
+			if r == '\n' && len(line)+lineWidth <= screenWidth {
+				text += line + " "
+				line = string(r)
+			} else if lineWidth > 0 && len(line)+lineWidth <= screenWidth {
 				line += string(r)
 			} else {
 				text += line + " \n"
