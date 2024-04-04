@@ -3,13 +3,14 @@ package main
 import (
 	// "bytes"
 	"fmt"
-	"image"
+	// "image"
 	// "image/png"
 	"io"
 	"os"
-	"os/exec"
+	// "os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -20,10 +21,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/inancgumus/screen"
-	"github.com/ledongthuc/pdf"
 	"github.com/mattn/go-runewidth"
 
 	// "github.com/nfnt/resize"
+	"code.sajari.com/docconv/v2"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"lumus/spinner"
@@ -615,132 +616,176 @@ type LoadContentMsg struct {
 }
 
 func readPDFFile(fileName string, pageNum int) (string, int, error) {
-	f, r, err := pdf.Open(pwd + "/" + fileName)
+	f, err := os.Open(pwd + "/" + fileName)
 	if err != nil {
-		return err.Error(), 0, err
+		fmt.Println("Error open file:", err)
+		return "", 0, err
+	}
+	defer f.Close()
+
+	fileContent, err := io.ReadAll(f)
+	if err != nil {
+		return "", 0, err
 	}
 
-	totalPages := r.NumPage()
-	_ = f.Close()
+	re := regexp.MustCompile(`/Type\s*/Page[^s]`)
+	pageIndices := re.FindAllIndex(fileContent, -1)
+	totalPages := len(pageIndices)
 
-	// pythonExecutable := "./pdf_extractor"
-
-	//call python function
-	// cmd := exec.Command(pythonExecutable, pwd+fileName, fmt.Sprintf("%d", pageNum))
-	cmd := exec.Command("python3", targetPath, pwd+"/"+fileName, fmt.Sprintf("%d", pageNum))
-	// cmd := exec.Command("bash", targetPath, pwd+"/"+fileName, fmt.Sprintf("%d", pageNum))
-
-	output, err := cmd.Output()
-	if err != nil {
-		return err.Error(), 0, err
-	}
-	pageContent := string(output)
-
-	parts := strings.Split(pageContent, "\n")
-
-	widthPage := parts[0]
-	heightPage := parts[1]
-
-	pageContent = strings.Join(parts[2:], "\n")
-	pageContent = textWithWidth(pageContent)
-
-	outputDir := "lumus_images_extract"
+	outputDir := "lumus_extract"
 
 	//extract images
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
-		return pageContent, totalPages, nil
+		return "", 0, err
 	}
 	defer func() {
 		_ = os.RemoveAll(outputDir)
 	}()
-
-	//configure image extraction options
 	pageSelection := []string{strconv.Itoa(pageNum)}
-
-	if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
-		return pageContent, totalPages, nil
-	}
-
-	imagePath, err := getImageFile(outputDir)
-	if err != nil || imagePath == "" {
-		return pageContent, totalPages, nil
-	}
-
-	imgFile, err := os.Open(imagePath)
+	// readPdfPageFilePath := outputDir + "/" + "lumus_pdf_page" + pageSelection + ".pdf"
+	// api.ExtractPagesFile(pwd+"/"+fileName, readPdfPageFilePath, []string{fmt.Sprintf("%d", pageNum)}, nil)
+	// api.ExtractPagesFile(pwd+"/"+fileName, readPdfPageFilePath, []string{fmt.Sprintf("%d", pageNum)}, nil)
+	readPdfPageFilePath := outputDir + "/" + fmt.Sprintf("%s_page_%d.pdf", "lumus_pdf_page", pageNum)
+	api.ExtractPages(f, outputDir, "lumus_pdf_page", pageSelection, nil)
+	res, err := docconv.ConvertPath(readPdfPageFilePath)
 	if err != nil {
-		// return err.Error(), 0, err
-		return pageContent, totalPages, nil
-	}
-	defer imgFile.Close()
-
-	//decode the image
-	img, _, err := image.Decode(imgFile)
-	if err != nil {
-		return pageContent, totalPages, nil
+		return "", 0, err
 	}
 
-	bounds := img.Bounds()
-	widthImg := bounds.Max.X
-	heightImg := bounds.Max.Y
-	//
-	// // Resize the image to improve OCR performance
-	// resizedImg := resize.Resize(0, 1100, img, resize.Lanczos3)
-	// // The resulting image is empty or has unexpected dimensions
-	// pageContent += strconv.Itoa(widthImg) + " x " + strconv.Itoa(heightImg) + "\n"
-	// var buf bytes.Buffer
-	//
-	// //Encode the image to the byte buffer
-	// if err = png.Encode(&buf, resizedImg); err != nil {
+	// pageContent := textWithWidth(res.Body)
+
 	// return pageContent, totalPages, nil
-	// }
-	//
-	// // Pass the bytes to the Set Image FromBytes function
-	// err = client.SetImageFromBytes(buf.Bytes())
-	// if err != nil {
-	// return pageContent, totalPages, nil
-	// }
+	return res.Body + "\n", totalPages, nil
 
-	err = client.SetImage(imagePath)
-	if err != nil {
-		// return err.Error(), 0, err
-		return pageContent, totalPages, nil
-	}
-
-	text, err := client.Text()
-	if err != nil {
-		return pageContent, totalPages, nil
-	}
-
-	if widthPage == "" || heightPage == "" {
-		return text, totalPages, nil
-	}
-
-	heightPageFloat, err := strconv.ParseFloat(heightPage, 64)
-	if err != nil {
-		return pageContent, totalPages, nil
-	}
-	widthPageFloat, err := strconv.ParseFloat(widthPage, 64)
-	if err != nil {
-		return pageContent, totalPages, nil
-	}
-
-	perHeight := float64(heightImg) / heightPageFloat
-	perWidth := float64(widthImg) / widthPageFloat
-
-	if perHeight > 0.8 && perWidth > 0.8 {
-		return text, totalPages, nil
-	}
-
-	similarity := levenshteinDistance(pageContent, text)
-
-	// Set a threshold to determine whether texts are similar enough
-	threshold := 125
-
-	if similarity <= threshold {
-		return text, totalPages, nil
-	}
-	return text + "\n" + pageContent, totalPages, nil
 }
+
+// return "", 0, nil
+// f, r, err := pdf.Open(pwd + "/" + fileName)
+// if err != nil {
+// return err.Error(), 0, err
+// }
+//
+// totalPages := r.NumPage()
+// _ = f.Close()
+//
+// // pythonExecutable := "./pdf_extractor"
+//
+// //call python function
+// // cmd := exec.Command(pythonExecutable, pwd+fileName, fmt.Sprintf("%d", pageNum))
+// cmd := exec.Command("python3", targetPath, pwd+"/"+fileName, fmt.Sprintf("%d", pageNum))
+// // cmd := exec.Command("bash", targetPath, pwd+"/"+fileName, fmt.Sprintf("%d", pageNum))
+//
+// output, err := cmd.Output()
+// if err != nil {
+// return err.Error(), 0, err
+// }
+// pageContent := string(output)
+//
+// parts := strings.Split(pageContent, "\n")
+//
+// widthPage := parts[0]
+// heightPage := parts[1]
+//
+// pageContent = strings.Join(parts[2:], "\n")
+// pageContent = textWithWidth(pageContent)
+//
+// outputDir := "lumus_images_extract"
+//
+// //extract images
+// if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+// return pageContent, totalPages, nil
+// }
+// defer func() {
+// _ = os.RemoveAll(outputDir)
+// }()
+//
+// //configure image extraction options
+// pageSelection := []string{strconv.Itoa(pageNum)}
+//
+// if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
+// return pageContent, totalPages, nil
+// }
+//
+// imagePath, err := getImageFile(outputDir)
+// if err != nil || imagePath == "" {
+// return pageContent, totalPages, nil
+// }
+//
+// imgFile, err := os.Open(imagePath)
+// if err != nil {
+// // return err.Error(), 0, err
+// return pageContent, totalPages, nil
+// }
+// defer imgFile.Close()
+//
+// //decode the image
+// img, _, err := image.Decode(imgFile)
+// if err != nil {
+// return pageContent, totalPages, nil
+// }
+//
+// bounds := img.Bounds()
+// widthImg := bounds.Max.X
+// heightImg := bounds.Max.Y
+// //
+// // // Resize the image to improve OCR performance
+// // resizedImg := resize.Resize(0, 1100, img, resize.Lanczos3)
+// // // The resulting image is empty or has unexpected dimensions
+// // pageContent += strconv.Itoa(widthImg) + " x " + strconv.Itoa(heightImg) + "\n"
+// // var buf bytes.Buffer
+// //
+// // //Encode the image to the byte buffer
+// // if err = png.Encode(&buf, resizedImg); err != nil {
+// // return pageContent, totalPages, nil
+// // }
+// //
+// // // Pass the bytes to the Set Image FromBytes function
+// // err = client.SetImageFromBytes(buf.Bytes())
+// // if err != nil {
+// // return pageContent, totalPages, nil
+// // }
+//
+// err = client.SetImage(imagePath)
+// if err != nil {
+// // return err.Error(), 0, err
+// return pageContent, totalPages, nil
+// }
+//
+// text, err := client.Text()
+// if err != nil {
+// return pageContent, totalPages, nil
+// }
+//
+// if widthPage == "" || heightPage == "" {
+// return text, totalPages, nil
+// }
+//
+// heightPageFloat, err := strconv.ParseFloat(heightPage, 64)
+// if err != nil {
+// return pageContent, totalPages, nil
+// }
+// widthPageFloat, err := strconv.ParseFloat(widthPage, 64)
+// if err != nil {
+// return pageContent, totalPages, nil
+// }
+//
+// perHeight := float64(heightImg) / heightPageFloat
+// perWidth := float64(widthImg) / widthPageFloat
+//
+// if perHeight > 0.8 && perWidth > 0.8 {
+// return text, totalPages, nil
+// }
+//
+// similarity := levenshteinDistance(pageContent, text)
+//
+// // Set a threshold to determine whether texts are similar enough
+// threshold := 125
+//
+// if similarity <= threshold {
+// return text, totalPages, nil
+// }
+// return text + "\n" + pageContent, totalPages, nil
+// }
 
 func getImageFile(dir string) (string, error) {
 	var imageFiles []string
