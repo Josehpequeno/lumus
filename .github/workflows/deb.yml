@@ -26,8 +26,11 @@ jobs:
 
       - name: Install .deb Package
         run: sudo dpkg -i lumus_1.0.0_all.deb
-          
-      - name: Verify Installation
-        run: |
-          ./run_lumus.sh 
+
+    - name: Set execute permissions for script
+      run: chmod +x run_lumus.sh
+
+    - name: Run Lumus script
+      run: ./run_lumus.sh
+      
 
