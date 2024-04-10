@@ -28,6 +28,7 @@ jobs:
         run: sudo dpkg -i lumus_1.0.0_all.deb
           
       - name: Verify Installation
-        run: |
-          lumus 
+        env:
+          DISPLAY: ''
+        run: lumus 
 
