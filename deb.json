@@ -1,0 +1,32 @@
+{
+  "name": "lumus",
+   "version": "1.0.0",
+  "maintainer": "Josehpequeno <hicarojbs21@gmail.com>",
+  "description": " A command line tool to read PDF files directly in the terminal.",
+  "changelog-cmd": "changelog debian --vars='{\"name\":\"!name!\"}'",
+  "homepage": "https://github.com/Josehpequeno/lumus",
+  "arch": "all",
+  "files": [
+    {
+      "from": "build/!name!",
+      "to": "/usr/bin",
+      "base" : "build/",
+      "fperm": "0755"
+    }
+  ],
+  "depends": [
+      "tesseract-ocr", 
+      "libleptonica-dev", 
+      "libtesseract-dev"
+    ],
+  "copyrights": [
+    {
+      "files": "*",
+      "copyright": "2024 Josehpequeno <hicarojbs21@gmail.com>",
+      "license": "MIT",
+      "file": "LICENSE"
+    }
+  ],
+  "changelog-file": "",
+  "changelog-cmd": ""
+}

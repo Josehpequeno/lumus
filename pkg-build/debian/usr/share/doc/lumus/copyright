@@ -1,0 +1,10 @@
+Format-Specification: http://anonscm.debian.org/viewvc/dep/web/deps/dep5/copyright-format.xml?view=markup
+Name: lumus
+Maintainer: Josehpequeno <hicarojbs21@gmail.com>
+Source: https://github.com/Josehpequeno/lumus
+
+Files: *
+Copyright: 2024 Josehpequeno <hicarojbs21@gmail.com>
+License: MIT
+File: LICENSE
+

@@ -1,0 +1,9 @@
+name: lumus
+version: 1.0.0
+arch: amd64
+description: A command line tool to read PDF files directly in the terminal.
+maintainer: Josehpequeno <hicarojbs21@gmail.com>
+homepage: https://github.com/Josehpequeno/lumus
+depends: tesseract-ocr, libleptonica-dev, libtesseract-dev
+binaries:
+  - lumus

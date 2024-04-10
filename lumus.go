@@ -130,6 +130,12 @@ func initialModel() model {
 		os.Exit(1)
 	}
 
+	pwd, err = os.Getwd()
+	if err != nil {
+		fmt.Println("Error reading directory path", err)
+		os.Exit(1)
+	}
+
 	var filteredFiles []os.DirEntry
 	for _, file := range files {
 		if file.IsDir() || strings.HasSuffix(file.Name(), ".pdf") {
@@ -566,7 +572,8 @@ type LoadContentMsg struct {
 }
 
 func readPDFFile(fileName string, pageNum int) (string, int, error) {
-	f, r, err := pdf.Open(pwd + "/" + fileName)
+	filepath := pwd + "/" + fileName
+	f, r, err := pdf.Open(filepath)
 	if err != nil {
 		return err.Error(), 0, err
 	}
@@ -600,7 +607,7 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	//configure image extraction options
 
-	if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
+	if err := api.ExtractImagesFile(filepath, outputDir, pageSelection, nil); err != nil {
 		return pageContent, totalPages, nil
 	}
 
