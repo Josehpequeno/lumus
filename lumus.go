@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -47,6 +48,8 @@ var client *gosseract.Client
 var pwd string
 
 const useHighPerformanceRenderer = false
+
+const version = "1.0.0"
 
 var (
 	titleStyle         = lipgloss.NewStyle().MarginLeft(2)
@@ -110,6 +113,17 @@ const (
 )
 
 func main() {
+	// -v
+	showVersion := flag.Bool("v", false, "Show version")
+
+	// parse command line arguments
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("Lumus version:", version)
+		os.Exit(0)
+	}
+
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	client = gosseract.NewClient()
 

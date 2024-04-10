@@ -30,7 +30,8 @@ jobs:
       - name: Set execute permissions for script
         run: chmod +x run_lumus.sh
 
-      - name: Run Lumus script
-        run: ./run_lumus.sh
+      - name: Verify Installation
+        run: |
+          lumus -v
       
 
