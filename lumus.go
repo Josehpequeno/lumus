@@ -576,7 +576,7 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	outputDir := "lumus_extract"
 
-	//extract images
+	//extract content
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
 		return "", 0, err
 	}
@@ -594,7 +594,38 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	pageContent := textWithWidth(res.Body)
 
-	return pageContent, totalPages, nil
+	if len(pageContent) > 0 {
+		return pageContent, totalPages, nil
+	}
+
+	//configure image extraction options
+
+	if err := api.ExtractImagesFile(fileName, outputDir, pageSelection, nil); err != nil {
+		return pageContent, totalPages, nil
+	}
+
+	imagePath, err := getImageFile(outputDir)
+	if err != nil || imagePath == "" {
+		return pageContent, totalPages, nil
+	}
+
+	imgFile, err := os.Open(imagePath)
+	if err != nil {
+		return pageContent, totalPages, nil
+	}
+	defer imgFile.Close()
+
+	err = client.SetImage(imagePath)
+	if err != nil {
+		return pageContent, totalPages, nil
+	}
+
+	text, err := client.Text()
+	if err != nil {
+		return pageContent, totalPages, nil
+	}
+
+	return text, totalPages, nil
 }
 
 func textWithWidth(s string) string {
@@ -626,4 +657,34 @@ func textWithWidth(s string) string {
 		return text
 	}
 	return s
+}
+
+func getImageFile(dir string) (string, error) {
+	var imageFiles []string
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() && isImageFile(info.Name()) {
+			imageFiles = append(imageFiles, path)
+		}
+		return nil
+	})
+
+	if err != nil || len(imageFiles) == 0 {
+		return "", nil
+	}
+	return imageFiles[0], nil
+}
+
+func isImageFile(name string) bool {
+	ext := filepath.Ext(name)
+	switch ext {
+	case ".jpg", ".jpeg", ".png", ".gif", ".bmp":
+		return true
+	default:
+		return false
+	}
 }
