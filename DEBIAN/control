@@ -3,4 +3,4 @@ Version: 1.0
 Architecture: amd64
 Maintainer: Josehpequeno <hicarojbs21@gmail.com>
 Description: A command line tool to read PDF files directly in the terminal.
-Depends: tesseract-ocr, python3-pip, python3-pypdf2, libleptonica-dev, libtesseract-dev
+Depends: tesseract-ocr, libleptonica-dev, libtesseract-dev
