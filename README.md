@@ -21,14 +21,22 @@ Before installing Lumus, you need to have the following dependencies installed o
 - Go (version 1.16 or later)
 
 #### Debian 
+- tesseract-ocr 
+- libleptonica-dev 
+- libtesseract-dev
+- poppler-utils
+- wv
+- unrtf
+- tidy
 
-```
-sudo dpkg -i lumus_1.0.0-1_amd64.deb && sudo apt-get install -f
-```
 #### Arch linux 
-- tesseract 
-<!-- - yay -S python-pypdf2 -->
-
+- tesseract
+- poppler
+- wv
+- unrtf
+- tidy
+- tesseract
+- leptonica
 
 ### Installation Steps
 
@@ -55,6 +63,36 @@ sudo dpkg -i lumus_1.0.0-1_amd64.deb && sudo apt-get install -f
    ```bash
    go install
    ```
+
+- Install on Arch
+   1. Clone this repository:
+   
+      ```bash
+      git clone https://github.com/Josehpequeno/lumus
+      ```
+   
+   2. Install base-devel:
+   
+      ```bash
+      sudo pacman -Syu base-devel
+      ```
+   
+   3. Navigate to the project directory:
+   
+      ```bash
+      cd lumus
+      ```
+   4. Install with makepkg
+
+      ```
+      makepkg -si
+      ```
+- Install on Debian
+   1. Download file lumus_1.0.0-1_amd64.deb on release
+      ```
+      sudo dpkg -i lumus_1.0.0-1_amd64.deb && sudo apt-get install -f
+      ```
+
 
 ## Usage
 
