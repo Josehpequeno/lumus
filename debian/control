@@ -1,0 +1,13 @@
+Source: lumus
+Section: misc
+Priority: optional
+Maintainer: Josehpequeno <hicarojbs21@gmail.com>
+Build-Depends: debhelper (>= 9), debhelper-compat (= 13), tesseract-ocr, libleptonica-dev, libtesseract-dev, poppler-utils, wv, unrtf, tidy
+Standards-Version: 3.9.8
+Homepage: https://github.com/Josehpequeno/lumus
+
+Package: lumus
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: pdf reader
+ A command line tool to read PDF files directly in the terminal.

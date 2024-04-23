@@ -1,6 +1,6 @@
 module lumus
 
-go 1.18
+go 1.21
 
 require (
 	code.sajari.com/docconv/v2 v2.0.0-pre.4
