@@ -33,30 +33,30 @@ sudo pacman -S tesseract poppler wv unrtf tidy tesseract leptonica
 ```
 
 ### Installation Steps
-
-1. Clone this repository:
-
-   ```bash
-   git clone https://github.com/Josehpequeno/lumus
-   ```
-
-2. Navigate to the project directory:
-
-   ```bash
-   cd lumus
-   ```
-
-3. Build the project:
-
-   ```bash
-   go build
-   ```
-
-4. Install the executable:
-
-   ```bash
-   go install
-   ```
+<!--  -->
+<!-- 1. Clone this repository: -->
+<!--  -->
+   <!-- ```bash -->
+   <!-- git clone https://github.com/Josehpequeno/lumus -->
+   <!-- ``` -->
+<!--  -->
+<!-- 2. Navigate to the project directory: -->
+<!--  -->
+   <!-- ```bash -->
+   <!-- cd lumus -->
+   <!-- ``` -->
+<!--  -->
+<!-- 3. Build the project: -->
+<!--  -->
+   <!-- ```bash -->
+   <!-- go build -->
+   <!-- ``` -->
+<!--  -->
+<!-- 4. Install the executable: -->
+<!--  -->
+   <!-- ```bash -->
+   <!-- go install -->
+   <!-- ``` -->
 
 - Install on Arch
    1. Clone this repository:
