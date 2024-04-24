@@ -9,8 +9,7 @@ Lumus is a command-line tool written in Go that allows you to read PDF files dir
 - Minimalistic and distraction-free interface
 
 ## Preview
-<img src="preview.gif" width="800" height="450">
-
+![Preview](preview.gif)
 
 ## Installation
 
