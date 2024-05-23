@@ -19,7 +19,7 @@ Before installing Lumus, you need to have the following dependencies installed o
 
 - Go (version 1.16 or later)
 
-#### Debian 
+#### Debian/Ubuntu 
 
 ```
 sudo apt-get install tesseract-ocr libleptonica-dev libtesseract-dev poppler-utils wv unrtf tidy
@@ -80,7 +80,7 @@ sudo pacman -S tesseract poppler wv unrtf tidy tesseract leptonica
       ```
       makepkg -si
       ```
-- Install on Debian
+- Install on Debian/Ubuntu 
    1. Download file lumus_1.0.0-1_amd64.deb on release
       ```
       sudo dpkg -i lumus_1.0.0-1_amd64.deb && sudo apt-get install -f
