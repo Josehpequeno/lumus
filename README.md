@@ -82,9 +82,9 @@ sudo pacman -S tesseract poppler wv unrtf tidy leptonica
       makepkg -si
       ```
 - Install on Debian/Ubuntu
-   1. Download file lumus_1.0.0-1_amd64.deb on release
+   1. Download file lumus_1.0.1-1_amd64.deb on release
       ```
-      sudo dpkg -i lumus_1.0.0-1_amd64.deb && sudo apt-get install -f
+      sudo dpkg -i lumus_1.0.1-1_amd64.deb && sudo apt-get install -f
       ```
 
 
