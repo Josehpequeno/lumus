@@ -16,14 +16,14 @@ Changes:
  .
    * Initial release.
 Checksums-Sha1:
- b948885521765bdb96ddeee8fddbdbe5aa91c3f2 4279580 lumus-dbgsym_1.0.1-1_amd64.ddeb
- afc6dd41288da8dc33d241b4d3bdad3dfd4f40ad 17222 lumus_1.0.1-1_amd64.buildinfo
- 140ea5ee3fa83e2b9d29385e7725685869b94359 4915772 lumus_1.0.1-1_amd64.deb
+ 259d4b9990d3a8668b036f94d52b19bfc4ffbc13 4101168 lumus-dbgsym_1.0.1-1_amd64.ddeb
+ 9cfb359f8b78917468047cb15b057ab022091f33 17222 lumus_1.0.1-1_amd64.buildinfo
+ dec27f9baba16bb262b80487982c3bbbeae42ff9 4508412 lumus_1.0.1-1_amd64.deb
 Checksums-Sha256:
- 69532d1516eaab3f08e8c053a85acb092fa98216807b64f43cec0df00c02627c 4279580 lumus-dbgsym_1.0.1-1_amd64.ddeb
- ca7f227446f801c8385012f55094b53d67e6bc312b921a3d7a8a4b561b9f985e 17222 lumus_1.0.1-1_amd64.buildinfo
- 7a5cac354a69db2d4ff8121afd7a3abe5877d04540ef21991964b546a05e95d9 4915772 lumus_1.0.1-1_amd64.deb
+ 851a755fc11793f1b2a7927a4c7c9a23cc6c5f7965707a46509ff75cd80b6f57 4101168 lumus-dbgsym_1.0.1-1_amd64.ddeb
+ f983dcaac293bf966334235762b9b5014e998f332f377dfdc46ab4b0c6c1e2ed 17222 lumus_1.0.1-1_amd64.buildinfo
+ b54b03a36e0ae99cee37b570662b9d289933364e2e72c0aa6b3960403ff64e35 4508412 lumus_1.0.1-1_amd64.deb
 Files:
- ce4d179da54ab64c6d1921a2aa8fa0e0 4279580 debug optional lumus-dbgsym_1.0.1-1_amd64.ddeb
- 76cfd0c194a29a9686a526c190624002 17222 misc optional lumus_1.0.1-1_amd64.buildinfo
- bec339fb63102e9f5cc2c8095879a0a8 4915772 misc optional lumus_1.0.1-1_amd64.deb
+ 8dbe3f3120659b17fef84ffc43be3d7c 4101168 debug optional lumus-dbgsym_1.0.1-1_amd64.ddeb
+ 806c314d41e9828a83088a7e383af675 17222 misc optional lumus_1.0.1-1_amd64.buildinfo
+ 31f95ad9e91b2e213c0f5a07596fdf9d 4508412 misc optional lumus_1.0.1-1_amd64.deb

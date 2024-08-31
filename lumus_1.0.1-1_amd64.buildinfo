@@ -4,17 +4,17 @@ Binary: lumus lumus-dbgsym
 Architecture: amd64
 Version: 1.0.1-1
 Checksums-Md5:
- ce4d179da54ab64c6d1921a2aa8fa0e0 4279580 lumus-dbgsym_1.0.1-1_amd64.ddeb
- bec339fb63102e9f5cc2c8095879a0a8 4915772 lumus_1.0.1-1_amd64.deb
+ 8dbe3f3120659b17fef84ffc43be3d7c 4101168 lumus-dbgsym_1.0.1-1_amd64.ddeb
+ 31f95ad9e91b2e213c0f5a07596fdf9d 4508412 lumus_1.0.1-1_amd64.deb
 Checksums-Sha1:
- b948885521765bdb96ddeee8fddbdbe5aa91c3f2 4279580 lumus-dbgsym_1.0.1-1_amd64.ddeb
- 140ea5ee3fa83e2b9d29385e7725685869b94359 4915772 lumus_1.0.1-1_amd64.deb
+ 259d4b9990d3a8668b036f94d52b19bfc4ffbc13 4101168 lumus-dbgsym_1.0.1-1_amd64.ddeb
+ dec27f9baba16bb262b80487982c3bbbeae42ff9 4508412 lumus_1.0.1-1_amd64.deb
 Checksums-Sha256:
- 69532d1516eaab3f08e8c053a85acb092fa98216807b64f43cec0df00c02627c 4279580 lumus-dbgsym_1.0.1-1_amd64.ddeb
- 7a5cac354a69db2d4ff8121afd7a3abe5877d04540ef21991964b546a05e95d9 4915772 lumus_1.0.1-1_amd64.deb
+ 851a755fc11793f1b2a7927a4c7c9a23cc6c5f7965707a46509ff75cd80b6f57 4101168 lumus-dbgsym_1.0.1-1_amd64.ddeb
+ b54b03a36e0ae99cee37b570662b9d289933364e2e72c0aa6b3960403ff64e35 4508412 lumus_1.0.1-1_amd64.deb
 Build-Origin: Ubuntu
 Build-Architecture: amd64
-Build-Date: Sat, 31 Aug 2024 11:05:33 -0300
+Build-Date: Sat, 31 Aug 2024 11:31:24 -0300
 Build-Tainted-By:
  merged-usr-via-aliased-dirs
  usr-local-has-includes

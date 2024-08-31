@@ -1,2 +1,2 @@
 debian:
-	 make build && sudo dpkg-buildpackage -b -uc
+	 make build && cp lumus bin/lumus && sudo dpkg-buildpackage -b -uc
