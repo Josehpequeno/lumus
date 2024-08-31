@@ -5,7 +5,7 @@ pkgdesc="A command line tool to read PDF files directly in the terminal"
 arch=('x86_64')
 url="https://github.com/Josehpequeno/lumus"
 license=('MIT')
-depends=('poppler' 'wv' 'unrtf' 'tidy' 'tesseract' 'leptonica')
+depends=('poppler' 'wv' 'unrtf' 'tidy' 'tesseract' 'leptonica' 'go')
 
 build() {
     # Comandos para construir o seu projeto, por exemplo:
