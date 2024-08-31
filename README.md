@@ -19,16 +19,16 @@ Before installing Lumus, you need to have the following dependencies installed o
 
 - Go (version 1.16 or later)
 
-#### Debian 
+#### Debian
 
 ```
 sudo apt-get install tesseract-ocr libleptonica-dev libtesseract-dev poppler-utils wv unrtf tidy
 ```
 
-#### Arch linux 
+#### Arch linux
 
 ```
-sudo pacman -S tesseract poppler wv unrtf tidy tesseract leptonica
+sudo pacman -S tesseract poppler wv unrtf tidy leptonica
 ```
 
 ### Installation Steps
@@ -59,19 +59,19 @@ sudo pacman -S tesseract poppler wv unrtf tidy tesseract leptonica
 
 - Install on Arch
    1. Clone this repository:
-   
+
       ```bash
       git clone https://github.com/Josehpequeno/lumus
       ```
-   
+
    2. Install base-devel:
-   
+
       ```bash
       sudo pacman -Syu base-devel
       ```
-   
+
    3. Navigate to the project directory:
-   
+
       ```bash
       cd lumus
       ```
@@ -92,7 +92,7 @@ sudo pacman -S tesseract poppler wv unrtf tidy tesseract leptonica
 To use Lumus, simply run the executable and navigate to the file you want to read:
 
 ```bash
-lumus 
+lumus
 ```
 
 Once Lumus is running, you can navigate through pages using the arrow keys and perform various actions using the keyboard shortcuts displayed on the screen.

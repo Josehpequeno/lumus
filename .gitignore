@@ -24,3 +24,6 @@ go.work
 build
 #dist
 extract_text.spec
+
+#deb build
+debian/.debhelper

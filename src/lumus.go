@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -18,11 +19,12 @@ import (
 	"github.com/inancgumus/screen"
 	"github.com/mattn/go-runewidth"
 
+	"lumus/src/spinner"
+
 	"code.sajari.com/docconv/v2"
 	"github.com/ledongthuc/pdf"
 	"github.com/otiai10/gosseract/v2"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"lumus/src/spinner"
 )
 
 type model struct {
@@ -597,7 +599,7 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 
 	outputDir := "lumus_extract"
 
-	//extract content
+	// extract content
 	if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
 		return "", 0, err
 	}
@@ -606,11 +608,16 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 	}()
 
 	pageSelection := []string{strconv.Itoa(pageNum)}
-	readPdfPageFilePath := outputDir + "/" + fmt.Sprintf("%s_page_%d.pdf", "lumus_pdf_page", pageNum)
 	api.ExtractPages(f, outputDir, "lumus_pdf_page", pageSelection, nil)
+
+	readPdfPageFilePath := outputDir + "/" + fmt.Sprintf("%s_page_%d.pdf", "lumus_pdf_page", pageNum)
 	res, err := docconv.ConvertPath(readPdfPageFilePath)
 	if err != nil {
-		return "", 0, err
+		text, err := apiExtractText(fileName, outputDir, pageSelection)
+		if err != nil {
+			return "", totalPages, errors.New("Sorry, Lumus cannot read this page of the PDF file. But don't worry, it's doing its best! 😊")
+		}
+		return text, totalPages, nil
 	}
 
 	pageContent := textWithWidth(res.Body)
@@ -619,34 +626,43 @@ func readPDFFile(fileName string, pageNum int) (string, int, error) {
 		return pageContent, totalPages, nil
 	}
 
-	//configure image extraction options
-
-	if err := api.ExtractImagesFile(filepath, outputDir, pageSelection, nil); err != nil {
-		return pageContent, totalPages, nil
-	}
-
-	imagePath, err := getImageFile(outputDir)
-	if err != nil || imagePath == "" {
-		return pageContent, totalPages, nil
-	}
-
-	imgFile, err := os.Open(imagePath)
-	if err != nil {
-		return pageContent, totalPages, nil
-	}
-	defer imgFile.Close()
-
-	err = client.SetImage(imagePath)
-	if err != nil {
-		return pageContent, totalPages, nil
-	}
-
-	text, err := client.Text()
+	text, err := apiExtractText(fileName, outputDir, pageSelection)
 	if err != nil {
 		return pageContent, totalPages, nil
 	}
 
 	return text, totalPages, nil
+}
+
+func apiExtractText(filepath string, outputDir string, pageSelection []string) (string, error) {
+	//configure image extraction options
+
+	if err := api.ExtractImagesFile(filepath, outputDir, pageSelection, nil); err != nil {
+		return "", err
+	}
+
+	imagePath, err := getImageFile(outputDir)
+	if err != nil || imagePath == "" {
+		return "", err
+	}
+
+	imgFile, err := os.Open(imagePath)
+	if err != nil {
+		return "", err
+	}
+	defer imgFile.Close()
+
+	err = client.SetImage(imagePath)
+	if err != nil {
+		return "", err
+	}
+
+	text, err := client.Text()
+	if err != nil {
+		return "", err
+	}
+
+	return text, nil
 }
 
 func textWithWidth(s string) string {

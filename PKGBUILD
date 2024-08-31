@@ -1,5 +1,5 @@
 pkgname=lumus
-pkgver=1.0.0
+pkgver=1.0.1
 pkgrel=1
 pkgdesc="A command line tool to read PDF files directly in the terminal"
 arch=('x86_64')
@@ -15,7 +15,7 @@ build() {
 package() {
     # Criar diretório de instalação
     mkdir -p "$pkgdir/usr/bin"
-    
+
     # Copiar o executável lumus para o diretório de instalação
     cp "$pkgname" "$pkgdir/usr/bin/"
     # Instalar o executável construído
