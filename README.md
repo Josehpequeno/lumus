@@ -26,11 +26,16 @@ To install the default version available in the repositories:
 sudo apt-get install tesseract-ocr libleptonica-dev libtesseract-dev poppler-utils wv unrtf tidy
 ```
 
+Verify the Tesseract installation:
+```
+tesseract --version
+``
+
 If Tesseract is not version 5, add the PPA and update:
 ```
 sudo add-apt-repository ppa:alex-p/tesseract-ocr5
 sudo apt-get update
-sudo apt-get install --fix-broken tesseract-ocr
+sudo apt-get install tesseract-ocr
 ```
 
 #### Arch linux
