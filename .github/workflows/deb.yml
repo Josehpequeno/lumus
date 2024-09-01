@@ -20,6 +20,9 @@ jobs:
         with:
           go-version: "1.20"
 
+      - name: Add ppa
+        run: sudo add-apt-repository ppa:alex-p/tesseract-ocr5 -y && sudo apt-get update
+        
       - name: Install dependencies
         run: sudo apt-get install tesseract-ocr libleptonica-dev libtesseract-dev poppler-utils wv unrtf tidy -y
 
