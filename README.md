@@ -29,7 +29,7 @@ sudo apt-get install tesseract-ocr libleptonica-dev libtesseract-dev poppler-uti
 Verify the Tesseract installation:
 ```
 tesseract --version
-``
+```
 
 If Tesseract is not version 5, add the PPA and update:
 ```
