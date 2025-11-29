@@ -18,6 +18,8 @@ RPM_BUILD_DIR=$(RPM_DIR)/BUILD
 RPM_RPMS_DIR=$(RPM_DIR)/RPMS
 RPM_SRPMS_DIR=$(RPM_DIR)/SRPMS
 
+DEB_DIR=deb-package
+
 # Targets especiais
 #.PHONY: Indica que esses são "alvos falsos" (não são arquivos reais)
 .PHONY: all build clean install uninstall pkgbuild clean-pkg arch-package install-arch \
@@ -92,19 +94,38 @@ install-arch: arch-package
 	@echo "Package installation complete!"
 
 deb-package: build-linux
-	mkdir -p $(BUILD_DIR)/deb/DEBIAN
-	mkdir -p $(BUILD_DIR)/deb/usr/bin
-	mkdir -p $(BUILD_DIR)/deb/usr/share/lumus
-	cp $(BUILD_DIR)/lumus-linux $(BUILD_DIR)/deb/usr/bin/lumus
-	# Create control file
-	@echo "Package: lumus" > $(BUILD_DIR)/deb/DEBIAN/control
-	@echo "Version: $(VERSION)" >> $(BUILD_DIR)/deb/DEBIAN/control
-	@echo "Section: utils" >> $(BUILD_DIR)/deb/DEBIAN/control
-	@echo "Priority: optional" >> $(BUILD_DIR)/deb/DEBIAN/control
-	@echo "Architecture: amd64" >> $(BUILD_DIR)/deb/DEBIAN/control
-	@echo "Maintainer: Josehpequeno <hicarojbs21@gmail.com>" >> $(BUILD_DIR)/deb/DEBIAN/control
-	@echo "Description: Display random cute ASCII art emojis" >> $(BUILD_DIR)/deb/DEBIAN/control
-	dpkg-deb --build $(BUILD_DIR)/deb $(BUILD_DIR)/lumus_$(VERSION)_amd64.deb
+	@echo "Creating Debian package..."
+	@mkdir -p $(DEB_DIR)/DEBIAN
+	@mkdir -p $(DEB_DIR)/usr/bin
+	@mkdir -p $(DEB_DIR)/usr/share/doc/lumus
+	
+	# Copiar binário
+	cp $(BUILD_DIR)/lumus-linux $(DEB_DIR)/usr/bin/lumus
+	chmod +x $(DEB_DIR)/usr/bin/lumus
+	
+	# Copiar documentação
+	cp LICENSE $(DEB_DIR)/usr/share/doc/lumus/
+	
+	# Criar arquivo de controle usando echo
+	@echo "Package: lumus" > $(DEB_DIR)/DEBIAN/control
+	@echo "Version: $(VERSION)" >> $(DEB_DIR)/DEBIAN/control
+	@echo "Architecture: amd64" >> $(DEB_DIR)/DEBIAN/control
+	@echo "Maintainer: Josehpequeno <hicarojbs21@gmail.com>" >> $(DEB_DIR)/DEBIAN/control
+	@echo "Depends: libc6 (>= 2.28), libgcc-s1 (>= 3.0), liblept5, libstdc++6 (>= 6), libtesseract5 (>= 4.0.0)" >> $(DEB_DIR)/DEBIAN/control
+	@echo "Recommends: poppler-utils, wv, unrtf, tidy, tesseract-ocr" >> $(DEB_DIR)/DEBIAN/control
+	@echo "Section: utils" >> $(DEB_DIR)/DEBIAN/control
+	@echo "Priority: optional" >> $(DEB_DIR)/DEBIAN/control
+	@echo "Homepage: https://github.com/Josehpequeno/lumus" >> $(DEB_DIR)/DEBIAN/control
+	@echo "Description: PDF reader for terminal" >> $(DEB_DIR)/DEBIAN/control
+	@echo " A command line tool to read PDF files directly in the terminal." >> $(DEB_DIR)/DEBIAN/control
+	@echo " Provides a minimalistic and distraction-free reading experience." >> $(DEB_DIR)/DEBIAN/control
+	
+	# Construir pacote .deb
+	dpkg-deb --build $(DEB_DIR) lumus_$(VERSION)_amd64.deb
+	@echo "Pacote Debian criado: lumus_$(VERSION)_amd64.deb"
+
+clean:
+	rm -rf $(BUILD_DIR) $(DEB_DIR) *.deb
 
 # Comandos para AUR
 prepare-aur:
